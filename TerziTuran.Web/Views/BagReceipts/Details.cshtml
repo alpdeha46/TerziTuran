@@ -1,0 +1,29 @@
+@model TerziTuran.Web.Models.BagReceipt
+@{ ViewData["Title"] = "Poşet Fiş Detayı"; }
+<div class="card soft-card">
+    <div class="receipt-hero">
+        <div>
+            <span class="eyebrow">TerziTuran</span>
+            <h3 class="mb-1">Poşet Teslim Fişi</h3>
+            <p class="text-secondary mb-0">Fiş No: @Model.ReceiptNumber</p>
+        </div>
+        <div class="d-flex flex-column gap-2">
+            <div class="pickup-code large">@Model.BagNumber</div>
+            <div class="text-secondary text-center small">Poşet No</div>
+        </div>
+    </div>
+    <div class="detail-grid mt-4">
+        <div><span>Müşteri</span><strong>@Model.Order?.Customer?.FullName</strong></div>
+        <div><span>Sipariş</span><strong>@Model.Order?.Title</strong></div>
+        <div><span>Teslim Kodu</span><strong>@Model.PickupCode</strong></div>
+        <div><span>Poşet Adedi</span><strong>@Model.BagCount</strong></div>
+        <div><span>Durum</span><strong>@(Model.IsDelivered ? "Teslim Edildi" : "Beklemede")</strong></div>
+        <div><span>Veriliş Tarihi</span><strong>@Model.IssuedAt.ToString("dd.MM.yyyy HH:mm")</strong></div>
+        <div><span>Teslim Tarihi</span><strong>@(Model.DeliveredAt?.ToString("dd.MM.yyyy HH:mm") ?? "-")</strong></div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.Note))
+    {
+        <div class="info-block mt-3"><strong>Not</strong><span>@Model.Note</span></div>
+    }
+    <div class="mt-4 d-flex gap-2"><a asp-action="Print" asp-route-id="@Model.Id" class="btn btn-gold">Yazdır</a><a asp-action="Index" class="btn btn-outline-dark">Listeye Dön</a></div>
+</div>

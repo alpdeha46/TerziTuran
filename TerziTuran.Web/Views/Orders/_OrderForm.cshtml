@@ -1,0 +1,31 @@
+@model Order
+<div class="card soft-card">
+    <form method="post" class="row g-3 order-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="col-md-4"><label class="form-label">Müşteri</label><select asp-for="CustomerId" asp-items="ViewBag.Customers" class="form-select"></select></div>
+        <div class="col-md-4"><label asp-for="ServiceType" class="form-label">Hizmet Tipi</label><select asp-for="ServiceType" asp-items="Html.GetEnumSelectList<OrderServiceType>()" class="form-select service-type-select"></select></div>
+        <div class="col-md-4"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="Category" class="form-label"></label><input asp-for="Category" class="form-control category-input" list="atelier-category-list" /></div>
+        <datalist id="atelier-category-list">
+            <option value="Takım Elbise"></option>
+            <option value="Gömlek"></option>
+            <option value="Ceket"></option>
+            <option value="Abiye"></option>
+            <option value="Pantolon"></option>
+            <option value="Fermuar Değişimi"></option>
+            <option value="Paça Kısaltma"></option>
+            <option value="Sökük Onarımı"></option>
+            <option value="Astar Değişimi"></option>
+        </datalist>
+        <div class="col-md-4"><label asp-for="Status" class="form-label"></label><select asp-for="Status" asp-items="Html.GetEnumSelectList<OrderStatus>()" class="form-select"></select></div>
+        <div class="col-md-4"><label asp-for="Priority" class="form-label"></label><select asp-for="Priority" asp-items="Html.GetEnumSelectList<OrderPriority>()" class="form-select"></select></div>
+        <div class="col-md-6"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="5"></textarea></div>
+        <div class="col-md-2"><label asp-for="DeliveryDate" class="form-label"></label><input asp-for="DeliveryDate" type="date" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="Price" class="form-label"></label><input asp-for="Price" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="PaidAmount" class="form-label"></label><input asp-for="PaidAmount" class="form-control" /></div>
+        <div class="col-12 d-flex gap-2"><button class="btn btn-gold">Kaydet</button><a asp-action="Index" class="btn btn-outline-light">İptal</a></div>
+    </form>
+</div>
+<partial name="_ValidationScriptsPartial" />

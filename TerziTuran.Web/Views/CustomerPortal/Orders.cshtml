@@ -1,0 +1,25 @@
+@using TerziTuran.Web.Extensions
+@model IEnumerable<Order>
+@{ ViewData["Title"] = "Siparişlerim"; }
+<div class="card soft-card">
+    <div class="card-heading"><h5>Tüm Sipariş Talepleriniz</h5><a asp-action="CreateOrder" class="btn btn-gold btn-sm">Yeni Sipariş</a></div>
+    <div class="table-responsive">
+        <table class="table tt-table align-middle">
+            <thead><tr><th>Hizmet</th><th>Başlık</th><th>Atölye Notu</th><th>Durum</th><th>Fiyat</th><th>Kalan</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td data-label="Hizmet"><span class="type-badge @(item.ServiceType == OrderServiceType.Sewing ? "type-sewing" : "type-repair")">@item.ServiceType.GetDisplayName()</span></td>
+                    <td data-label="Başlık">@item.Title<div class="small text-secondary">@item.Category</div></td>
+                    <td data-label="Atölye Notu" class="small text-secondary">@(item.CreatedByUser?.Role == UserRole.Customer ? "Portal üzerinden oluşturuldu" : $"Atölye kaydı: {item.CreatedByUser?.FullName}")</td>
+                    <td data-label="Durum"><span class="status-badge @item.Status.ToString().ToLower()">@item.Status.GetDisplayName()</span></td>
+                    <td data-label="Fiyat">@item.Price.ToString("N0") TL</td>
+                    <td data-label="Kalan">@((item.Price-item.PaidAmount).ToString("N0")) TL</td>
+                    <td class="text-end"><a asp-action="OrderDetails" asp-route-id="@item.Id" class="btn btn-sm btn-outline-dark">İncele</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

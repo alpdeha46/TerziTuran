@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.db
+*.db-shm
+*.db-wal
+publish/
+artifacts/
+node_modules/
+TerziTuran.Web/Data/*.db

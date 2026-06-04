@@ -1,0 +1,93 @@
+@{
+    var isAuthPage = Context.Request.Path.StartsWithSegments("/Auth");
+    var isCustomer = User.IsInRole("Customer");
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TerziTuran</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="@(isCustomer ? "musteri-tema" : "atolye-tema")">
+    @if (isAuthPage)
+    {
+        <main>@RenderBody()</main>
+    }
+    else
+    {
+        <div class="magaza-shell">
+            <aside class="yan-panel">
+                <div>
+                    <div class="marka-alani">
+                        <div class="marka-ikon"><i class="fa-solid fa-scissors"></i></div>
+                        <div>
+                            <div class="marka-baslik">TerziTuran</div>
+                            <div class="marka-alt">@(isCustomer ? "Müşteri Girişi" : "Atölye Kontrol Masası")</div>
+                        </div>
+                    </div>
+                    <div class="dukkan-kart mt-4">
+                        <span class="mini-etiket">Canlı Kullanım</span>
+                        <strong>@(isCustomer ? "Sipariş Takip Alanı" : "Günlük Operasyon Merkezi")</strong>
+                        <p>@(isCustomer ? "Sadece size ait sipariş ve teslim kodları görünür." : "Müşteri, sipariş, fiş ve teslim akışı tek merkezde toplanır.")</p>
+                    </div>
+                    <nav class="nav flex-column gap-1 mt-4">
+                        @if (isCustomer)
+                        {
+                            <a class="nav-link menü-link" asp-controller="CustomerPortal" asp-action="Index"><i class="fa-solid fa-store"></i> Panelim</a>
+                            <a class="nav-link menü-link" asp-controller="CustomerPortal" asp-action="Orders"><i class="fa-solid fa-box-open"></i> Siparişlerim</a>
+                            <a class="nav-link menü-link" asp-controller="CustomerPortal" asp-action="CreateOrder"><i class="fa-solid fa-plus"></i> Yeni Talep</a>
+                            <a class="nav-link menü-link" asp-controller="Profile" asp-action="Index"><i class="fa-solid fa-id-card"></i> Profilim</a>
+                        }
+                        else
+                        {
+                            <a class="nav-link menü-link" asp-controller="Dashboard" asp-action="Index"><i class="fa-solid fa-chart-column"></i> Gösterge Paneli</a>
+                            <a class="nav-link menü-link" asp-controller="Customers" asp-action="Index"><i class="fa-solid fa-users"></i> Müşteriler</a>
+                            <a class="nav-link menü-link" asp-controller="Orders" asp-action="Index"><i class="fa-solid fa-shirt"></i> Siparişler</a>
+                            <a class="nav-link menü-link" asp-controller="Payments" asp-action="Index"><i class="fa-solid fa-wallet"></i> Ödemeler</a>
+                            <a class="nav-link menü-link" asp-controller="Appointments" asp-action="Index"><i class="fa-solid fa-calendar-check"></i> Randevular</a>
+                            <a class="nav-link menü-link" asp-controller="Reports" asp-action="Index"><i class="fa-solid fa-file-lines"></i> Raporlar</a>
+                            @if (User.IsInRole("Admin"))
+                            {
+                                <a class="nav-link menü-link" asp-controller="Users" asp-action="Index"><i class="fa-solid fa-user-shield"></i> Kullanıcılar</a>
+                            }
+                            <a class="nav-link menü-link" asp-controller="Profile" asp-action="Index"><i class="fa-solid fa-address-card"></i> Profil</a>
+                        }
+                    </nav>
+                </div>
+                <form asp-controller="Auth" asp-action="Logout" method="post">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-ana w-100" type="submit"><i class="fa-solid fa-right-from-bracket me-2"></i>Çıkış Yap</button>
+                </form>
+            </aside>
+            <div class="icerik-alani">
+                <header class="ust-cubuk">
+                    <div>
+                        <span class="mini-etiket">TerziTuran Yönetimi</span>
+                        <h1 class="sayfa-baslik">@ViewData["Title"]</h1>
+                        <p class="sayfa-aciklama">@(isCustomer ? "Gerçek mağaza kullanımı için sadeleştirilmiş müşteri ekranı." : "Dikim, tamir, teslim ve fiş süreçleri Türkçe arayüzle tek ekranda.")</p>
+                    </div>
+                    <div class="kullanici-karti">
+                        <strong>@User.FindFirst("FullName")?.Value</strong>
+                        <span>@User.Identity?.Name</span>
+                    </div>
+                </header>
+                <main class="ana-icerik">
+                    <partial name="_Alerts" />
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
+    }
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

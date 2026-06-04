@@ -1,0 +1,49 @@
+@using TerziTuran.Web.Extensions
+@model IEnumerable<Order>
+@{ ViewData["Title"] = "Siparişler"; }
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+    <form class="row g-2">
+        <div class="col"><select name="status" class="form-select"><option value="">Tüm Durumlar</option>@foreach (var s in Enum.GetValues<OrderStatus>()) { <option selected="@(ViewBag.Status==s.ToString())" value="@s">@s.GetDisplayName()</option> }</select></div>
+        <div class="col"><input name="category" value="@ViewBag.Category" class="form-control" placeholder="Kategori veya ürün grubu" /></div>
+        <div class="col-auto"><button class="btn btn-outline-dark">Filtrele</button></div>
+    </form>
+    <a asp-action="Create" class="btn btn-gold">Yeni Sipariş</a>
+</div>
+<div class="card soft-card">
+    <div class="card-heading">
+        <h5>Sipariş Akışı</h5>
+        <span class="text-secondary small">Müşteri, dikim, tamir ve poşet teslim kodları aynı akışta yönetilir.</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table tt-table align-middle">
+            <thead><tr><th>Kaynak</th><th>Hizmet</th><th>Başlık</th><th>Müşteri</th><th>Poşet No</th><th>Durum</th><th>Fiyat</th><th>Teslim</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                var activeBag = item.BagReceipts.FirstOrDefault(x => !x.IsDelivered);
+                <tr>
+                    <td data-label="Kaynak">
+                        @if (item.IsCustomerRequest)
+                        {
+                            <span class="type-badge type-customer">Müşteri Paneli</span>
+                        }
+                        else
+                        {
+                            <span class="type-badge type-staff">Atölye Kaydı</span>
+                        }
+                        <div class="small text-secondary mt-1">@item.CreatedByUser?.FullName</div>
+                    </td>
+                    <td data-label="Hizmet"><span class="type-badge @(item.ServiceType == OrderServiceType.Sewing ? "type-sewing" : "type-repair")">@item.ServiceType.GetDisplayName()</span></td>
+                    <td data-label="Başlık">@item.Title<div class="small text-secondary">@item.Category</div></td>
+                    <td data-label="Müşteri">@item.Customer?.FullName</td>
+                    <td data-label="Poşet No">@if (activeBag is not null) { <span class="pickup-code">@activeBag.BagNumber</span> } else { <span class="text-secondary">Atanmadı</span> }</td>
+                    <td data-label="Durum"><span class="status-badge @item.Status.ToString().ToLower()">@item.Status.GetDisplayName()</span></td>
+                    <td data-label="Fiyat">@item.Price.ToString("N0") TL</td>
+                    <td data-label="Teslim">@item.DeliveryDate.ToString("dd.MM.yyyy")</td>
+                    <td class="text-end"><a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-dark">Detay</a> <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">Düzenle</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

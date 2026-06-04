@@ -1,0 +1,28 @@
+@using TerziTuran.Web.Extensions
+@model CustomerDetailsViewModel
+@{ ViewData["Title"] = "Müşteri Detayı"; }
+<div class="row g-4">
+<div class="col-lg-4">
+    <div class="card soft-card">
+        <h4>@Model.Customer.FullName</h4>
+        <div class="detail-grid mt-3">
+            <div><span>Telefon</span><strong>@Model.Customer.Phone</strong></div>
+            <div><span>E-posta</span><strong>@(string.IsNullOrWhiteSpace(Model.Customer.Email) ? "-" : Model.Customer.Email)</strong></div>
+            <div><span>Kayıt Tarihi</span><strong>@Model.Customer.CreatedAt.ToString("dd.MM.yyyy")</strong></div>
+            <div><span>Toplam Sipariş</span><strong>@Model.Orders.Count</strong></div>
+        </div>
+        <div class="info-block mt-3">
+            <strong>Adres</strong>
+            <span>@(string.IsNullOrWhiteSpace(Model.Customer.Address) ? "Adres bilgisi girilmemiş." : Model.Customer.Address)</span>
+        </div>
+        <div class="info-block mt-3">
+            <strong>Müşteri Notu</strong>
+            <span>@(string.IsNullOrWhiteSpace(Model.Customer.Notes) ? "Not bulunmuyor." : Model.Customer.Notes)</span>
+        </div>
+    </div>
+</div>
+<div class="col-lg-8" id="olculer"><div class="card soft-card"><div class="card-heading"><h5>Ölçüler</h5><span class="text-secondary small">Müşteri kartı üzerinden tüm ölçülere tek yerden ulaşılır.</span></div><div class="table-responsive"><table class="table tt-table"><thead><tr><th>Tarih</th><th>Göğüs</th><th>Bel</th><th>Kalça</th><th>Boy</th></tr></thead><tbody>@foreach (var x in Model.Measurements) { <tr><td data-label="Tarih">@x.CreatedAt.ToString("dd.MM.yyyy")</td><td data-label="Göğüs">@x.Chest</td><td data-label="Bel">@x.Waist</td><td data-label="Kalça">@x.Hip</td><td data-label="Boy">@x.Height</td></tr> }</tbody></table></div></div></div>
+<div class="col-lg-6"><div class="card soft-card"><h5>Siparişler</h5><div class="table-responsive"><table class="table tt-table"><thead><tr><th>Başlık</th><th>Durum</th><th>Teslim</th></tr></thead><tbody>@foreach (var x in Model.Orders) { <tr><td data-label="Başlık">@x.Title</td><td data-label="Durum"><span class="status-badge @x.Status.ToString().ToLower()">@x.Status.GetDisplayName()</span></td><td data-label="Teslim">@x.DeliveryDate.ToString("dd.MM.yyyy")</td></tr> }</tbody></table></div></div></div>
+<div class="col-lg-6"><div class="card soft-card"><h5>Ödemeler</h5><div class="table-responsive"><table class="table tt-table"><thead><tr><th>Sipariş</th><th>Tutar</th><th>Tarih</th></tr></thead><tbody>@foreach (var x in Model.Payments) { <tr><td data-label="Sipariş">@x.Order?.Title</td><td data-label="Tutar">@x.Amount.ToString("N0") TL</td><td data-label="Tarih">@x.PaymentDate.ToString("dd.MM.yyyy")</td></tr> }</tbody></table></div></div></div>
+<div class="col-12"><div class="card soft-card"><h5>Randevular</h5><div class="table-responsive"><table class="table tt-table"><thead><tr><th>Tarih</th><th>Başlık</th><th>Durum</th></tr></thead><tbody>@foreach (var x in Model.Appointments) { <tr><td data-label="Tarih">@x.AppointmentDate.ToString("dd.MM.yyyy HH:mm")</td><td data-label="Başlık">@x.Title</td><td data-label="Durum">@x.Status.GetDisplayName()</td></tr> }</tbody></table></div></div></div>
+</div>

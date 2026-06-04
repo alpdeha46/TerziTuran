@@ -1,0 +1,42 @@
+@model CustomerOrderCreateViewModel
+@{ ViewData["Title"] = "Yeni Sipariş Talebi"; }
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card soft-card">
+            <h4 class="mb-3">Yeni Talep Oluştur</h4>
+            <form method="post" class="row g-3">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <input asp-for="CustomerId" type="hidden" />
+                <div class="col-md-6"><label class="form-label">Müşteri</label><input value="@Model.CustomerName" class="form-control" readonly /></div>
+                <div class="col-md-6"><label asp-for="ServiceType" class="form-label">Hizmet Tipi</label><select asp-for="ServiceType" asp-items="Html.GetEnumSelectList<OrderServiceType>()" class="form-select"></select></div>
+                <div class="col-md-6"><label asp-for="Title" class="form-label">Sipariş Başlığı</label><input asp-for="Title" class="form-control" /><span asp-validation-for="Title" class="text-danger"></span></div>
+                <div class="col-md-6"><label asp-for="Category" class="form-label">Kategori</label><input asp-for="Category" class="form-control" list="category-list" /><span asp-validation-for="Category" class="text-danger"></span></div>
+                <datalist id="category-list">
+                    @foreach (var item in Model.SewingCategories.Concat(Model.RepairCategories).Distinct())
+                    {
+                        <option value="@item"></option>
+                    }
+                </datalist>
+                <div class="col-md-6"><label asp-for="DeliveryDate" class="form-label">Tercih Edilen Teslim Tarihi</label><input asp-for="DeliveryDate" type="date" class="form-control" /></div>
+                <div class="col-12"><label asp-for="Description" class="form-label">Açıklama</label><textarea asp-for="Description" class="form-control" rows="6" placeholder="Ölçü, kumaş tercihi, tamir ayrıntısı veya istediğiniz modeli yazabilirsiniz."></textarea></div>
+                <div class="col-12 d-flex gap-2"><button class="btn btn-gold">Talebi Gönder</button><a asp-action="Orders" class="btn btn-outline-light">İptal</a></div>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card soft-card highlight-card">
+            <h5>Hızlı Yönlendirme</h5>
+            <p class="text-secondary">Siparişinizi doğru ekibe yönlendirmek için hizmet tipini seçin.</p>
+            <div class="info-block">
+                <strong>Dikim</strong>
+                <span>Takım elbise, gömlek, ceket, abiye, özel tasarım</span>
+            </div>
+            <div class="info-block">
+                <strong>Tamir</strong>
+                <span>Paça kısaltma, fermuar, sökük, daraltma, astar ve onarım</span>
+            </div>
+        </div>
+    </div>
+</div>
+<partial name="_ValidationScriptsPartial" />

@@ -1,0 +1,3 @@
+@model Payment
+@{ ViewData["Title"] = "Odeme Sil"; }
+<div class="card soft-card"><h4>@Model.Amount.ToString("N0") TL odeme silinsin mi?</h4><form method="post">@Html.AntiForgeryToken()<button class="btn btn-danger">Sil</button> <a asp-action="Index" class="btn btn-outline-light">Vazgec</a></form></div>

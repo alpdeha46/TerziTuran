@@ -1,0 +1,29 @@
+@model RegisterViewModel
+@{ ViewData["Title"] = "Müşteri Kaydı"; }
+<section class="auth-shell">
+    <div class="auth-card">
+        <div class="auth-hero">
+            <h1>Müşteri portalı oluşturun.</h1>
+            <p>Ölçü, tamir ve yeni dikim siparişlerinizi doğrudan atölye ekibine iletin. Kayıt olan müşteri, sadece kendi panelini görür.</p>
+            <div class="hero-pills">
+                <span>Dikim takibi</span>
+                <span>Tamir talepleri</span>
+                <span>Durum bildirimleri</span>
+            </div>
+        </div>
+        <div class="auth-form-panel">
+            <form asp-action="Register" method="post" class="row g-3">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="col-md-6"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName" class="text-danger"></span></div>
+                <div class="col-md-6"><label asp-for="Username" class="form-label"></label><input asp-for="Username" class="form-control" /><span asp-validation-for="Username" class="text-danger"></span></div>
+                <div class="col-md-6"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger"></span></div>
+                <div class="col-md-6"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /><span asp-validation-for="Phone" class="text-danger"></span></div>
+                <div class="col-md-6"><label asp-for="Password" class="form-label"></label><input asp-for="Password" class="form-control" /><span asp-validation-for="Password" class="text-danger"></span></div>
+                <div class="col-md-6"><label asp-for="ConfirmPassword" class="form-label"></label><input asp-for="ConfirmPassword" class="form-control" /><span asp-validation-for="ConfirmPassword" class="text-danger"></span></div>
+                <div class="col-12 d-grid"><button class="btn btn-gold">Müşteri Hesabı Aç</button></div>
+            </form>
+        </div>
+    </div>
+</section>
+<partial name="_ValidationScriptsPartial" />

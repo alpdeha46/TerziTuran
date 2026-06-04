@@ -1,0 +1,25 @@
+@model IEnumerable<TerziTuran.Web.Models.BagReceipt>
+@{ ViewData["Title"] = "Poşet Fişleri"; }
+<div class="card soft-card">
+    <div class="card-heading"><h5>Mağaza Fiş Takibi</h5><span class="text-secondary small">Poşet teslim kodu ile ürün karışıklığını önleyin.</span></div>
+    <div class="table-responsive">
+        <table class="table tt-table align-middle">
+            <thead><tr><th>Poşet No</th><th>Fiş No</th><th>Müşteri</th><th>Sipariş</th><th>Kod</th><th>Poşet</th><th>Durum</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td><span class="pickup-code">@item.BagNumber</span></td>
+                    <td>@item.ReceiptNumber<div class="small text-secondary">@item.IssuedAt.ToString("dd.MM.yyyy HH:mm")</div></td>
+                    <td>@item.Order?.Customer?.FullName</td>
+                    <td>@item.Order?.Title</td>
+                    <td><span class="pickup-code">@item.PickupCode</span></td>
+                    <td>@item.BagCount</td>
+                    <td>@(item.IsDelivered ? "Teslim Edildi" : "Beklemede")</td>
+                    <td class="text-end"><a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-dark">Detay</a> <a asp-action="Print" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">Yazdır</a> <form asp-action="ToggleDelivered" method="post" class="d-inline">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@item.Id" /><button class="btn btn-sm btn-outline-info">Durum Değiştir</button></form></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

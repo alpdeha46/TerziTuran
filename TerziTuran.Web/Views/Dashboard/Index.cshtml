@@ -1,0 +1,42 @@
+@using TerziTuran.Web.Extensions
+@model DashboardViewModel
+@{ ViewData["Title"] = "Gösterge Paneli"; }
+<div class="card soft-card mb-4">
+    <form class="row g-3">
+        <div class="col-md-3"><label class="form-label">Başlangıç</label><input type="date" name="startDate" value="@ViewBag.StartDate" class="form-control" /></div>
+        <div class="col-md-3"><label class="form-label">Bitiş</label><input type="date" name="endDate" value="@ViewBag.EndDate" class="form-control" /></div>
+        <div class="col-md-3"><label class="form-label">Durum</label><select name="status" class="form-select"><option value="">Tümü</option>@foreach (var item in Enum.GetValues<OrderStatus>()) { <option selected="@(ViewBag.Status?.ToString()==item.ToString())" value="@item">@item.GetDisplayName()</option> }</select></div>
+        <div class="col-md-3"><label class="form-label">Kategori</label><input type="text" name="category" value="@ViewBag.Category" class="form-control" /></div>
+        <div class="col-12 d-flex gap-2"><button class="btn btn-gold">Filtrele</button><a asp-action="Index" class="btn btn-outline-light">Sıfırla</a></div>
+    </form>
+</div>
+<div class="stats-grid">
+    <div class="stat-card"><span>Toplam Müşteri</span><strong>@Model.TotalCustomers</strong></div>
+    <div class="stat-card"><span>Toplam Sipariş</span><strong>@Model.TotalOrders</strong></div>
+    <div class="stat-card"><span>Bekleyen</span><strong>@Model.PendingOrders</strong></div>
+    <div class="stat-card"><span>Teslim Edilen</span><strong>@Model.DeliveredOrders</strong></div>
+    <div class="stat-card"><span>Toplam Tahsilat</span><strong>@Model.TotalRevenue.ToString("N0") TL</strong></div>
+    <div class="stat-card"><span>Kalan Ödeme</span><strong>@Model.RemainingPayments.ToString("N0") TL</strong></div>
+    <div class="stat-card"><span>Bugünkü Randevu</span><strong>@Model.TodaysAppointments</strong></div>
+    <div class="stat-card"><span>Yaklaşan Teslimat</span><strong>@Model.UpcomingDeliveries</strong></div>
+</div>
+<div class="row g-4 mt-1">
+    <div class="col-lg-8"><div class="card soft-card"><h5>Aylık Sipariş Grafiği</h5><canvas id="ordersChart"></canvas></div></div>
+    <div class="col-lg-4"><div class="card soft-card"><h5>Durum Dağılımı</h5><canvas id="statusChart"></canvas></div></div>
+    <div class="col-lg-12"><div class="card soft-card"><h5>Aylık Tahsilat</h5><canvas id="revenueChart"></canvas></div></div>
+</div>
+<div class="row g-4 mt-1">
+    <div class="col-lg-6"><div class="card soft-card"><h5>Son Müşteriler</h5><div class="table-responsive"><table class="table tt-table"><thead><tr><th>Ad</th><th>Telefon</th><th>Tarih</th></tr></thead><tbody>@foreach (var item in Model.RecentCustomers) { <tr><td data-label="Ad">@item.FullName</td><td data-label="Telefon">@item.Phone</td><td data-label="Tarih">@item.CreatedAt.ToString("dd.MM.yyyy")</td></tr> }</tbody></table></div></div></div>
+    <div class="col-lg-6"><div class="card soft-card"><h5>Son Siparişler</h5><div class="table-responsive"><table class="table tt-table"><thead><tr><th>Sipariş</th><th>Müşteri</th><th>Durum</th></tr></thead><tbody>@foreach (var item in Model.RecentOrders) { <tr><td data-label="Sipariş">@item.Title</td><td data-label="Müşteri">@item.Customer?.FullName</td><td data-label="Durum"><span class="status-badge @item.Status.ToString().ToLower()">@item.Status.GetDisplayName()</span></td></tr> }</tbody></table></div></div></div>
+    <div class="col-lg-6"><div class="card soft-card"><h5>Bugünkü Randevular</h5><div class="table-responsive"><table class="table tt-table"><thead><tr><th>Saat</th><th>Müşteri</th><th>Başlık</th></tr></thead><tbody>@foreach (var item in Model.TodayAppointments) { <tr><td data-label="Saat">@item.AppointmentDate.ToString("HH:mm")</td><td data-label="Müşteri">@item.Customer?.FullName</td><td data-label="Başlık">@item.Title</td></tr> }</tbody></table></div></div></div>
+    <div class="col-lg-6"><div class="card soft-card"><h5>Yaklaşan Teslimatlar</h5><div class="table-responsive"><table class="table tt-table"><thead><tr><th>Tarih</th><th>Sipariş</th><th>Müşteri</th></tr></thead><tbody>@foreach (var item in Model.UpcomingDeliveriesList) { <tr><td data-label="Tarih">@item.DeliveryDate.ToString("dd.MM.yyyy")</td><td data-label="Sipariş">@item.Title</td><td data-label="Müşteri">@item.Customer?.FullName</td></tr> }</tbody></table></div></div></div>
+</div>
+@section Scripts {
+<script>
+window.dashboardCharts = {
+  orders: @Html.Raw(Model.MonthlyOrderChartJson),
+  status: @Html.Raw(Model.StatusPieChartJson),
+  revenue: @Html.Raw(Model.MonthlyRevenueChartJson)
+};
+</script>
+}

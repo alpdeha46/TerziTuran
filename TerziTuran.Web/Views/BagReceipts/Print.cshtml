@@ -1,0 +1,40 @@
+@model TerziTuran.Web.Models.BagReceipt
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <title>Poşet Fişi - @Model.ReceiptNumber</title>
+    <style>
+        body { font-family: Arial, sans-serif; background:#f4efe6; margin:0; padding:24px; color:#1f2937; }
+        .receipt { max-width:420px; margin:0 auto; background:#fffdf8; border:2px dashed #8b6f47; padding:24px; border-radius:18px; }
+        h1 { margin:0 0 6px; font-size:26px; }
+        .muted { color:#6b7280; }
+        .code { font-size:42px; font-weight:800; text-align:center; letter-spacing:8px; padding:18px 0; margin:18px 0; background:#f7ebd2; border-radius:16px; }
+        .row { display:flex; justify-content:space-between; gap:16px; margin:10px 0; }
+        .row strong { display:block; }
+        .note { margin-top:16px; padding:12px; background:#f9f4ea; border-radius:12px; }
+        .footer { margin-top:18px; font-size:12px; color:#6b7280; text-align:center; }
+        @@media print { body { background:#fff; padding:0; } .receipt { box-shadow:none; border:1px solid #999; } }
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="receipt">
+        <h1>TerziTuran</h1>
+        <div class="muted">Poşet Teslim Fişi</div>
+        <div class="muted">Fiş No: @Model.ReceiptNumber</div>
+        <div class="code">@Model.BagNumber</div>
+        <div class="muted" style="text-align:center;">Poşet Numarası</div>
+        <div class="row"><div><span class="muted">Müşteri</span><strong>@Model.Order?.Customer?.FullName</strong></div><div><span class="muted">Poşet</span><strong>@Model.BagCount</strong></div></div>
+        <div class="row"><div><span class="muted">Sipariş</span><strong>@Model.Order?.Title</strong></div><div><span class="muted">Tarih</span><strong>@Model.IssuedAt.ToString("dd.MM.yyyy HH:mm")</strong></div></div>
+        <div class="row"><div><span class="muted">Teslim Kodu</span><strong>@Model.PickupCode</strong></div><div><span class="muted">Durum</span><strong>@(Model.IsDelivered ? "Teslim Edildi" : "Beklemede")</strong></div></div>
+        @if (!string.IsNullOrWhiteSpace(Model.Note))
+        {
+            <div class="note"><strong>Not:</strong> @Model.Note</div>
+        }
+        <div class="footer">Teslim sırasında bu fiş numarası veya teslim kodu istenir.</div>
+    </div>
+</body>
+</html>

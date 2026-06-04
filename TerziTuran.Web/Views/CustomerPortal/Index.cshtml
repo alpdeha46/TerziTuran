@@ -1,0 +1,66 @@
+@using TerziTuran.Web.Extensions
+@model CustomerPortalViewModel
+@{ ViewData["Title"] = "Müşteri Paneli"; }
+<div class="hero-panel mb-4">
+    <div>
+        <span class="mini-etiket">Hoş geldiniz</span>
+        <h2 class="section-title mb-2">@Model.Customer.FullName</h2>
+        <p class="text-secondary mb-0">Dikim ve tamir taleplerinizi buradan yönetebilir, mevcut siparişlerinizin son durumunu takip edebilirsiniz.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="CreateOrder" class="btn btn-gold"><i class="fa-solid fa-plus me-2"></i>Yeni Sipariş</a>
+        <a asp-action="Orders" class="btn btn-outline-dark">Tüm Siparişlerim</a>
+    </div>
+</div>
+<div class="stats-grid">
+    <div class="stat-card"><span>Aktif Sipariş</span><strong>@Model.RecentOrders.Count(x => x.Status != OrderStatus.Delivered && x.Status != OrderStatus.Cancelled)</strong></div>
+    <div class="stat-card"><span>Toplam Tahsilat</span><strong>@Model.TotalSpent.ToString("N0") TL</strong></div>
+    <div class="stat-card"><span>Kalan Tutar</span><strong>@Model.RemainingAmount.ToString("N0") TL</strong></div>
+    <div class="stat-card"><span>Yaklaşan Randevu</span><strong>@Model.UpcomingAppointments.Count</strong></div>
+</div>
+<div class="row g-4 mt-1">
+    <div class="col-lg-7">
+        <div class="card soft-card">
+            <div class="card-heading"><h5>Son Siparişleriniz</h5><a asp-action="Orders">Tümünü Gör</a></div>
+            <div class="table-responsive">
+                <table class="table tt-table align-middle">
+                    <thead><tr><th>Hizmet</th><th>Başlık</th><th>Durum</th><th>Teslim</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.RecentOrders)
+                    {
+                        <tr>
+                            <td data-label="Hizmet"><span class="type-badge @(item.ServiceType == OrderServiceType.Sewing ? "type-sewing" : "type-repair")">@item.ServiceType.GetDisplayName()</span></td>
+                            <td data-label="Başlık">@item.Title<div class="small text-secondary">@item.Category</div></td>
+                            <td data-label="Durum"><span class="status-badge @item.Status.ToString().ToLower()">@item.Status.GetDisplayName()</span></td>
+                            <td data-label="Teslim">@item.DeliveryDate.ToString("dd.MM.yyyy")</td>
+                            <td class="text-end"><a asp-action="OrderDetails" asp-route-id="@item.Id" class="btn btn-sm btn-outline-dark">Detay</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card soft-card">
+            <h5>Yaklaşan Randevular</h5>
+            @if (Model.UpcomingAppointments.Any())
+            {
+                <div class="timeline-list">
+                    @foreach (var item in Model.UpcomingAppointments)
+                    {
+                        <div class="timeline-item">
+                            <strong>@item.Title</strong>
+                            <span>@item.AppointmentDate.ToString("dd.MM.yyyy HH:mm")</span>
+                            <p>@item.Description</p>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="empty-state small-empty">Planlanmış randevunuz bulunmuyor.</div>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,27 @@
+@using TerziTuran.Web.Extensions
+@model IEnumerable<Appointment>
+@{ ViewData["Title"] = "Randevular"; }
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+    <div class="text-secondary">Prova, teslim ve ölçü görüşmelerini tek takvim akışında izleyin.</div>
+    <a asp-action="Create" class="btn btn-gold">Yeni Randevu</a>
+</div>
+<div class="card soft-card">
+    <div class="table-responsive">
+        <table class="table tt-table align-middle">
+            <thead><tr><th>Tarih</th><th>Müşteri</th><th>Sipariş</th><th>Başlık</th><th>Durum</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td data-label="Tarih">@item.AppointmentDate.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td data-label="Müşteri">@item.Customer?.FullName</td>
+                    <td data-label="Sipariş">@item.Order?.Title</td>
+                    <td data-label="Başlık">@item.Title</td>
+                    <td data-label="Durum">@item.Status.GetDisplayName()</td>
+                    <td class="text-end"><a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-dark">Detay</a> <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">Düzenle</a> <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">Sil</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

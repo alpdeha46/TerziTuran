@@ -1,0 +1,25 @@
+@model LoginViewModel
+@{ ViewData["Title"] = "Giriş"; }
+<section class="auth-shell">
+    <div class="auth-card">
+        <div class="auth-hero">
+            <span class="badge rounded-pill text-bg-warning px-3 py-2">TerziTuran</span>
+            <h1>Atölye yönetimini tek ekranda toplayın.</h1>
+            <p>Müşteriler, siparişler, ödemeler ve raporlar için modern bir terzi paneli.</p>
+        </div>
+        <div class="auth-form-panel">
+            <h2>Giriş Yap</h2>
+            <form asp-action="Login" method="post" class="row g-3">
+                @Html.AntiForgeryToken()
+                <input asp-for="ReturnUrl" type="hidden" />
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="col-12"><label asp-for="Username" class="form-label"></label><input asp-for="Username" class="form-control" /><span asp-validation-for="Username" class="text-danger"></span></div>
+                <div class="col-12"><label asp-for="Password" class="form-label"></label><input asp-for="Password" class="form-control" /><span asp-validation-for="Password" class="text-danger"></span></div>
+                <div class="col-12 d-grid"><button class="btn btn-gold btn-lg">Giriş Yap</button></div>
+                <div class="col-12 auth-links"><a asp-action="Register">Kayıt Ol</a><a asp-action="ForgotPassword">Şifremi Unuttum</a></div>
+                <div class="col-12 small text-secondary">Demo hesaplar: admin / Admin123*, staff / Staff123*, ahmet / Musteri123*</div>
+            </form>
+        </div>
+    </div>
+</section>
+<partial name="_ValidationScriptsPartial" />

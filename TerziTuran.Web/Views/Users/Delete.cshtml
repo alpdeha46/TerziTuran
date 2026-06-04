@@ -1,0 +1,3 @@
+@model User
+@{ ViewData["Title"] = "Kullanici Sil"; }
+<div class="card soft-card"><h4>@Model.FullName kullanicisi silinsin mi?</h4><form method="post">@Html.AntiForgeryToken()<button class="btn btn-danger">Sil</button> <a asp-action="Index" class="btn btn-outline-light">Vazgec</a></form></div>

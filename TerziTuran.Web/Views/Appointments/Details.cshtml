@@ -1,0 +1,16 @@
+@using TerziTuran.Web.Extensions
+@model Appointment
+@{ ViewData["Title"] = "Randevu Detayı"; }
+<div class="card soft-card">
+    <h4>@Model.Title</h4>
+    <div class="detail-grid mt-3">
+        <div><span>Müşteri</span><strong>@Model.Customer?.FullName</strong></div>
+        <div><span>Sipariş</span><strong>@Model.Order?.Title</strong></div>
+        <div><span>Tarih</span><strong>@Model.AppointmentDate.ToString("dd.MM.yyyy HH:mm")</strong></div>
+        <div><span>Durum</span><strong>@Model.Status.GetDisplayName()</strong></div>
+    </div>
+    <div class="info-block mt-3">
+        <strong>Açıklama</strong>
+        <span>@(string.IsNullOrWhiteSpace(Model.Description) ? "Açıklama girilmemiş." : Model.Description)</span>
+    </div>
+</div>

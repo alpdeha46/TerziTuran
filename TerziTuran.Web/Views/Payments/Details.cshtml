@@ -1,0 +1,16 @@
+@using TerziTuran.Web.Extensions
+@model Payment
+@{ ViewData["Title"] = "Ödeme Detayı"; }
+<div class="card soft-card">
+    <h4>@Model.Order?.Title</h4>
+    <div class="detail-grid mt-3">
+        <div><span>Müşteri</span><strong>@Model.Order?.Customer?.FullName</strong></div>
+        <div><span>Tutar</span><strong>@Model.Amount.ToString("N0") TL</strong></div>
+        <div><span>Ödeme Tipi</span><strong>@Model.PaymentType.GetDisplayName()</strong></div>
+        <div><span>Tarih</span><strong>@Model.PaymentDate.ToString("dd.MM.yyyy")</strong></div>
+    </div>
+    <div class="info-block mt-3">
+        <strong>Not</strong>
+        <span>@(string.IsNullOrWhiteSpace(Model.Note) ? "Açıklama girilmemiş." : Model.Note)</span>
+    </div>
+</div>

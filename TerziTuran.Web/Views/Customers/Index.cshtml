@@ -1,0 +1,28 @@
+@model IEnumerable<Customer>
+@{ ViewData["Title"] = "Müşteriler"; }
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3"><form class="d-flex gap-2"><input name="search" value="@ViewBag.Search" class="form-control" placeholder="Ad veya telefon ara" /><button class="btn btn-outline-dark">Ara</button></form><a asp-action="Create" class="btn btn-gold">Yeni Müşteri</a></div>
+<div class="card soft-card">
+    <div class="table-responsive">
+        <table class="table tt-table align-middle">
+            <thead><tr><th>Ad Soyad</th><th>Telefon</th><th>E-posta</th><th>Ölçü</th><th>Sipariş</th><th>Kayıt</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td data-label="Ad Soyad">@item.FullName</td>
+                    <td data-label="Telefon">@item.Phone</td>
+                    <td data-label="E-posta">@item.Email</td>
+                    <td data-label="Ölçü">@item.Measurements.Count</td>
+                    <td data-label="Sipariş">@item.Orders.Count</td>
+                    <td data-label="Kayıt">@item.CreatedAt.ToString("dd.MM.yyyy")</td>
+                    <td class="text-end">
+                        <a asp-action="Details" asp-route-id="@item.Id" asp-fragment="olculer" class="btn btn-sm btn-outline-dark">Ölçüleri Görüntüle</a>
+                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-light">Detay</a>
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">Düzenle</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

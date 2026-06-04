@@ -1,0 +1,16 @@
+@using TerziTuran.Web.Extensions
+@model User
+@{ ViewData["Title"] = "Profil"; }
+<div class="card soft-card">
+    <h3>@Model.FullName</h3>
+    <div class="detail-grid mt-3">
+        <div><span>Kullanıcı Adı</span><strong>@Model.Username</strong></div>
+        <div><span>E-posta</span><strong>@Model.Email</strong></div>
+        <div><span>Telefon</span><strong>@Model.Phone</strong></div>
+        <div><span>Rol</span><strong>@Model.Role.GetDisplayName()</strong></div>
+    </div>
+    <div class="d-flex gap-2 mt-3 flex-wrap">
+        <a asp-action="Edit" class="btn btn-gold">Profili Düzenle</a>
+        <a asp-action="ChangePassword" class="btn btn-outline-warning">Şifre Değiştir</a>
+    </div>
+</div>
