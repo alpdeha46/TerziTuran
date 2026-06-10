@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using TerziTuran.Web.Models;
 
 namespace TerziTuran.Web.DTOs;
 
@@ -23,13 +22,13 @@ public class RegisterRequestDto
     [Required, EmailAddress]
     public string Email { get; set; } = string.Empty;
 
-    [Required, MinLength(6)]
+    [Required, MinLength(10)]
+    [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$")]
     public string Password { get; set; } = string.Empty;
 
     [Phone]
     public string? Phone { get; set; }
 
-    public UserRole Role { get; set; } = UserRole.Customer;
 }
 
 public class AuthResultDto

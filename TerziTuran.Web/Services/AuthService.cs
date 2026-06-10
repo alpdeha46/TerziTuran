@@ -9,7 +9,6 @@ namespace TerziTuran.Web.Services;
 public interface IAuthService
 {
     Task<User?> ValidateUserAsync(string username, string password);
-    Task<(bool Success, string Message, User? User)> RegisterAsync(RegisterRequestDto dto);
     Task<(bool Success, string Message, User? User)> RegisterCustomerAsync(RegisterRequestDto dto);
     Task<(bool Success, string Message)> ChangePasswordAsync(int userId, string currentPassword, string newPassword);
 }
@@ -18,7 +17,8 @@ public class AuthService(AppDbContext context, IPasswordHasher<User> hasher) : I
 {
     public async Task<User?> ValidateUserAsync(string username, string password)
     {
-        var user = await context.Users.FirstOrDefaultAsync(x => x.Username == username);
+        var normalizedUsername = username.Trim().ToLowerInvariant();
+        var user = await context.Users.FirstOrDefaultAsync(x => x.Username.ToLower() == normalizedUsername);
         if (user is null || !user.IsActive)
         {
             return null;
@@ -28,11 +28,6 @@ public class AuthService(AppDbContext context, IPasswordHasher<User> hasher) : I
         return result == PasswordVerificationResult.Failed ? null : user;
     }
 
-    public async Task<(bool Success, string Message, User? User)> RegisterAsync(RegisterRequestDto dto)
-    {
-        return await RegisterInternalAsync(dto, dto.Role, createCustomerRecord: dto.Role == UserRole.Customer);
-    }
-
     public async Task<(bool Success, string Message, User? User)> RegisterCustomerAsync(RegisterRequestDto dto)
     {
         return await RegisterInternalAsync(dto, UserRole.Customer, createCustomerRecord: true);
@@ -40,26 +35,35 @@ public class AuthService(AppDbContext context, IPasswordHasher<User> hasher) : I
 
     private async Task<(bool Success, string Message, User? User)> RegisterInternalAsync(RegisterRequestDto dto, UserRole role, bool createCustomerRecord)
     {
-        if (await context.Users.AnyAsync(x => x.Username == dto.Username))
+        var username = dto.Username.Trim().ToLowerInvariant();
+        var email = dto.Email.Trim().ToLowerInvariant();
+
+        if (!PasswordPolicy.IsValid(dto.Password))
+        {
+            return (false, PasswordPolicy.ErrorMessage, null);
+        }
+
+        if (await context.Users.AnyAsync(x => x.Username.ToLower() == username))
         {
             return (false, "Bu kullanici adi zaten kullaniliyor.", null);
         }
 
-        if (await context.Users.AnyAsync(x => x.Email == dto.Email))
+        if (await context.Users.AnyAsync(x => x.Email.ToLower() == email))
         {
             return (false, "Bu e-posta adresi zaten kayitli.", null);
         }
 
+        await using var transaction = await context.Database.BeginTransactionAsync();
         Customer? customer = null;
         if (createCustomerRecord)
         {
             customer = new Customer
             {
-                FullName = dto.FullName,
-                Email = dto.Email,
-                Phone = dto.Phone ?? string.Empty,
-                Address = "Musteri panelinden kayit olusturuldu.",
-                Notes = "Portal kullanicisi",
+                FullName = dto.FullName.Trim(),
+                Email = email,
+                Phone = dto.Phone?.Trim() ?? string.Empty,
+                Address = string.Empty,
+                Notes = "Musteri portali",
                 CreatedAt = DateTime.UtcNow
             };
             context.Customers.Add(customer);
@@ -68,10 +72,10 @@ public class AuthService(AppDbContext context, IPasswordHasher<User> hasher) : I
 
         var user = new User
         {
-            FullName = dto.FullName,
-            Username = dto.Username,
-            Email = dto.Email,
-            Phone = dto.Phone,
+            FullName = dto.FullName.Trim(),
+            Username = username,
+            Email = email,
+            Phone = dto.Phone?.Trim(),
             Role = role,
             CustomerId = customer?.Id,
             IsActive = true,
@@ -81,6 +85,7 @@ public class AuthService(AppDbContext context, IPasswordHasher<User> hasher) : I
         user.PasswordHash = hasher.HashPassword(user, dto.Password);
         context.Users.Add(user);
         await context.SaveChangesAsync();
+        await transaction.CommitAsync();
         return (true, "Kullanici kaydi olusturuldu.", user);
     }
 
@@ -96,6 +101,11 @@ public class AuthService(AppDbContext context, IPasswordHasher<User> hasher) : I
         if (verify == PasswordVerificationResult.Failed)
         {
             return (false, "Mevcut sifre yanlis.");
+        }
+
+        if (!PasswordPolicy.IsValid(newPassword))
+        {
+            return (false, PasswordPolicy.ErrorMessage);
         }
 
         user.PasswordHash = hasher.HashPassword(user, newPassword);

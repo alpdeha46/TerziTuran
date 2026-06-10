@@ -1,9 +1,12 @@
+using System.Globalization;
 using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TerziTuran.Web.Data;
+using TerziTuran.Web.Extensions;
 using TerziTuran.Web.Models;
 using TerziTuran.Web.ViewModels;
 
@@ -12,14 +15,58 @@ namespace TerziTuran.Web.Controllers;
 [Authorize(Policy = "StaffOrAdmin")]
 public class OrdersController(AppDbContext context) : Controller
 {
-    public async Task<IActionResult> Index(string? status, string? category)
+    public async Task<IActionResult> Index(
+        string? search,
+        string? status,
+        string? category,
+        string sortBy = "created",
+        string sortDirection = "desc")
     {
-        var query = context.Orders.Include(x => x.Customer).Include(x => x.CreatedByUser).Include(x => x.BagReceipts).AsQueryable();
-        if (Enum.TryParse<OrderStatus>(status, out var parsedStatus)) query = query.Where(x => x.Status == parsedStatus);
-        if (!string.IsNullOrWhiteSpace(category)) query = query.Where(x => x.Category.Contains(category));
-        ViewBag.Status = status;
-        ViewBag.Category = category;
-        return View(await query.OrderByDescending(x => x.CreatedAt).ToListAsync());
+        var orders = await context.Orders
+            .Include(x => x.Customer)
+            .Include(x => x.CreatedByUser)
+            .Include(x => x.BagReceipts)
+            .AsNoTracking()
+            .ToListAsync();
+
+        if (Enum.TryParse<OrderStatus>(status, true, out var parsedStatus))
+        {
+            orders = orders.Where(x => x.Status == parsedStatus).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var normalizedCategory = NormalizeSearchText(category);
+            orders = orders.Where(x => NormalizeSearchText(x.Category).Contains(normalizedCategory)).ToList();
+        }
+
+        var suggestions = new List<string>();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = NormalizeSearchText(search);
+            var searchableOrders = orders;
+            orders = searchableOrders.Where(x => MatchesSearch(x, normalizedSearch)).ToList();
+
+            if (orders.Count == 0)
+            {
+                suggestions = FindSuggestions(searchableOrders, normalizedSearch);
+            }
+        }
+
+        sortBy = NormalizeSortBy(sortBy);
+        sortDirection = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase) ? "asc" : "desc";
+        orders = SortOrders(orders, sortBy, sortDirection == "desc").ToList();
+
+        return View(new OrdersIndexViewModel
+        {
+            Orders = orders,
+            Search = search?.Trim(),
+            Status = status,
+            Category = category?.Trim(),
+            SortBy = sortBy,
+            SortDirection = sortDirection,
+            Suggestions = suggestions
+        });
     }
 
     public async Task<IActionResult> Details(int id)
@@ -196,4 +243,133 @@ public class OrdersController(AppDbContext context) : Controller
 
     private async Task LoadCustomersAsync()
         => ViewBag.Customers = new SelectList(await context.Customers.OrderBy(x => x.FullName).ToListAsync(), "Id", "FullName");
+
+    private static bool MatchesSearch(Order order, string normalizedSearch)
+    {
+        var fields = new[]
+        {
+            order.Title,
+            order.Category,
+            order.Description,
+            order.Customer?.FullName,
+            order.CreatedByUser?.FullName,
+            order.ServiceType.GetDisplayName(),
+            order.Status.GetDisplayName()
+        }.Concat(order.BagReceipts.SelectMany(x => new[] { x.ReceiptNumber, x.PickupCode, x.Note }));
+
+        var combinedText = NormalizeSearchText(string.Join(' ', fields.Where(x => !string.IsNullOrWhiteSpace(x))));
+        return normalizedSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .All(term => combinedText.Contains(term, StringComparison.Ordinal));
+    }
+
+    private static List<string> FindSuggestions(IEnumerable<Order> orders, string normalizedSearch)
+    {
+        var candidates = orders
+            .SelectMany(x => new[] { x.Title, x.Category, x.Customer?.FullName })
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.Trim())
+            .Distinct(StringComparer.Create(new CultureInfo("tr-TR"), true))
+            .Select(x => new
+            {
+                Value = x,
+                Distance = SuggestionDistance(normalizedSearch, NormalizeSearchText(x))
+            })
+            .Where(x => x.Distance <= Math.Max(2, normalizedSearch.Length / 3))
+            .OrderBy(x => x.Distance)
+            .ThenBy(x => x.Value)
+            .Take(5)
+            .Select(x => x.Value)
+            .ToList();
+
+        return candidates;
+    }
+
+    private static int SuggestionDistance(string search, string candidate)
+    {
+        var distances = candidate
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Append(candidate)
+            .Select(part => LevenshteinDistance(search, part));
+
+        return distances.Min();
+    }
+
+    private static IEnumerable<Order> SortOrders(IEnumerable<Order> orders, string sortBy, bool descending)
+    {
+        Func<Order, object> keySelector = sortBy switch
+        {
+            "title" => x => NormalizeSearchText(x.Title),
+            "customer" => x => NormalizeSearchText(x.Customer?.FullName),
+            "service" => x => x.ServiceType,
+            "status" => x => x.Status,
+            "deliveryDate" => x => x.DeliveryDate,
+            "receipt" => x => x.BagReceipts
+                .Where(receipt => !receipt.IsDelivered)
+                .OrderByDescending(receipt => receipt.IssuedAt)
+                .Select(receipt => receipt.BagNumber)
+                .FirstOrDefault(),
+            _ => x => x.CreatedAt
+        };
+
+        return descending
+            ? orders.OrderByDescending(keySelector).ThenByDescending(x => x.CreatedAt)
+            : orders.OrderBy(keySelector).ThenByDescending(x => x.CreatedAt);
+    }
+
+    private static string NormalizeSortBy(string? sortBy)
+        => sortBy is "title" or "customer" or "service" or "status" or "deliveryDate" or "receipt"
+            ? sortBy
+            : "created";
+
+    private static string NormalizeSearchText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var decomposed = value.Trim().ToLower(new CultureInfo("tr-TR")).Replace('ı', 'i').Normalize(NormalizationForm.FormD);
+        var result = new StringBuilder(decomposed.Length);
+        var previousWasSpace = false;
+
+        foreach (var character in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark) continue;
+
+            if (char.IsLetterOrDigit(character))
+            {
+                result.Append(character);
+                previousWasSpace = false;
+            }
+            else if (!previousWasSpace)
+            {
+                result.Append(' ');
+                previousWasSpace = true;
+            }
+        }
+
+        return result.ToString().Trim();
+    }
+
+    private static int LevenshteinDistance(string source, string target)
+    {
+        if (source.Length == 0) return target.Length;
+        if (target.Length == 0) return source.Length;
+
+        var previous = Enumerable.Range(0, target.Length + 1).ToArray();
+        var current = new int[target.Length + 1];
+
+        for (var sourceIndex = 1; sourceIndex <= source.Length; sourceIndex++)
+        {
+            current[0] = sourceIndex;
+            for (var targetIndex = 1; targetIndex <= target.Length; targetIndex++)
+            {
+                var cost = source[sourceIndex - 1] == target[targetIndex - 1] ? 0 : 1;
+                current[targetIndex] = Math.Min(
+                    Math.Min(current[targetIndex - 1] + 1, previous[targetIndex] + 1),
+                    previous[targetIndex - 1] + cost);
+            }
+
+            (previous, current) = (current, previous);
+        }
+
+        return previous[target.Length];
+    }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TerziTuran.Web.DTOs;
 using TerziTuran.Web.Models;
 using TerziTuran.Web.Services;
@@ -18,6 +19,7 @@ public class AuthController(IAuthService authService) : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
@@ -46,6 +48,7 @@ public class AuthController(IAuthService authService) : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("register")]
     public async Task<IActionResult> Register(RegisterViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
@@ -65,8 +68,9 @@ public class AuthController(IAuthService authService) : Controller
             return View(model);
         }
 
-        TempData["Success"] = "Kayit basariyla olusturuldu. Giris yapabilirsiniz.";
-        return RedirectToAction(nameof(Login));
+        await SignInAsync(result.User);
+        TempData["Success"] = "Hesabiniz guvenle olusturuldu. Hos geldiniz.";
+        return RedirectToAction("Index", "CustomerPortal");
     }
 
     [HttpGet]
@@ -77,7 +81,7 @@ public class AuthController(IAuthService authService) : Controller
     public IActionResult ForgotPassword(ForgotPasswordViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
-        TempData["Success"] = "Sifre sifirlama talebiniz kaydedildi. Demo projede e-posta gonderimi yerine bilgi mesaji goste-rilmektedir.";
+        TempData["Success"] = "Bu e-posta sistemde kayitliysa sifre yenileme talebi guvenli sekilde isleme alinmistir.";
         return RedirectToAction(nameof(Login));
     }
 

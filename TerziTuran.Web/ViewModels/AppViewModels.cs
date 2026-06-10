@@ -24,6 +24,17 @@ public class OrderDetailsViewModel
     public BagReceiptCreateViewModel NewBagReceipt { get; set; } = new();
 }
 
+public class OrdersIndexViewModel
+{
+    public List<Order> Orders { get; set; } = [];
+    public string? Search { get; set; }
+    public string? Status { get; set; }
+    public string? Category { get; set; }
+    public string SortBy { get; set; } = "created";
+    public string SortDirection { get; set; } = "desc";
+    public List<string> Suggestions { get; set; } = [];
+}
+
 public class CustomerPortalViewModel
 {
     public Customer Customer { get; set; } = new();
@@ -95,6 +106,8 @@ public class ReportRowViewModel
 public class BagReceiptCreateViewModel
 {
     public int OrderId { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(1, 20, ErrorMessage = "Poşet adedi 1 ile 20 arasında olmalıdır.")]
     public int BagCount { get; set; } = 1;
+    [System.ComponentModel.DataAnnotations.StringLength(300)]
     public string? Note { get; set; }
 }

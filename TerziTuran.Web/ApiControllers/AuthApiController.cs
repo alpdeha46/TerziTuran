@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TerziTuran.Web.DTOs;
 using TerziTuran.Web.Services;
 
@@ -11,6 +12,7 @@ namespace TerziTuran.Web.ApiControllers;
 public class AuthApiController(IAuthService authService, IJwtService jwtService) : ControllerBase
 {
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login(LoginRequestDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ApiResponse<object>.Fail("Gecersiz istek.", ModelState));
@@ -20,10 +22,11 @@ public class AuthApiController(IAuthService authService, IJwtService jwtService)
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting("register")]
     public async Task<IActionResult> Register(RegisterRequestDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ApiResponse<object>.Fail("Gecersiz istek.", ModelState));
-        var result = await authService.RegisterAsync(dto);
+        var result = await authService.RegisterCustomerAsync(dto);
         if (!result.Success || result.User is null) return BadRequest(ApiResponse<object>.Fail(result.Message));
         return Ok(ApiResponse<AuthResultDto>.Ok(jwtService.CreateToken(result.User), "Kayit basarili."));
     }

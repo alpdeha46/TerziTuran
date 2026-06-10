@@ -1,46 +1,178 @@
 @using TerziTuran.Web.Extensions
-@model IEnumerable<Order>
-@{ ViewData["Title"] = "Siparişler"; }
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <form class="row g-2">
-        <div class="col"><select name="status" class="form-select"><option value="">Tüm Durumlar</option>@foreach (var s in Enum.GetValues<OrderStatus>()) { <option selected="@(ViewBag.Status==s.ToString())" value="@s">@s.GetDisplayName()</option> }</select></div>
-        <div class="col"><input name="category" value="@ViewBag.Category" class="form-control" placeholder="Kategori veya ürün grubu" /></div>
-        <div class="col-auto"><button class="btn btn-outline-dark">Filtrele</button></div>
+@model OrdersIndexViewModel
+@{
+    ViewData["Title"] = "Siparişler";
+
+    string NextDirection(string column)
+        => Model.SortBy == column && Model.SortDirection == "asc" ? "desc" : "asc";
+
+    string SortIcon(string column)
+        => Model.SortBy != column
+            ? "fa-sort"
+            : Model.SortDirection == "asc" ? "fa-sort-up" : "fa-sort-down";
+}
+
+<div class="order-search-panel mb-3">
+    <form asp-action="Index" method="get" class="order-search-form">
+        <div class="order-search-main">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input name="search" value="@Model.Search" class="form-control" autocomplete="off"
+                   placeholder="Sipariş, müşteri, hizmet, durum, fiş veya teslim kodu ara..." />
+        </div>
+        <select name="status" class="form-select">
+            <option value="">Tüm Durumlar</option>
+            @foreach (var status in Enum.GetValues<OrderStatus>())
+            {
+                <option selected="@(Model.Status == status.ToString())" value="@status">@status.GetDisplayName()</option>
+            }
+        </select>
+        <input name="category" value="@Model.Category" class="form-control" placeholder="Kategori" />
+        <input type="hidden" name="sortBy" value="@Model.SortBy" />
+        <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+        <button class="btn btn-gold" type="submit">Ara ve Filtrele</button>
+        <a asp-action="Index" class="btn btn-outline-dark" title="Filtreleri temizle"><i class="fa-solid fa-rotate-left"></i></a>
     </form>
-    <a asp-action="Create" class="btn btn-gold">Yeni Sipariş</a>
+
+    @if (Model.Suggestions.Count > 0)
+    {
+        <div class="search-suggestions">
+            <span><i class="fa-solid fa-wand-magic-sparkles"></i> Bunu mu demek istediniz?</span>
+            @foreach (var suggestion in Model.Suggestions)
+            {
+                <a asp-action="Index"
+                   asp-route-search="@suggestion"
+                   asp-route-status="@Model.Status"
+                   asp-route-category="@Model.Category"
+                   asp-route-sortBy="@Model.SortBy"
+                   asp-route-sortDirection="@Model.SortDirection">@suggestion</a>
+            }
+        </div>
+    }
 </div>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+    <div class="order-result-count">
+        <strong>@Model.Orders.Count</strong> sipariş bulundu
+        @if (!string.IsNullOrWhiteSpace(Model.Search))
+        {
+            <span>· “@Model.Search” araması</span>
+        }
+    </div>
+    <a asp-action="Create" class="btn btn-gold"><i class="fa-solid fa-plus"></i> Yeni Sipariş</a>
+</div>
+
 <div class="card soft-card">
     <div class="card-heading">
-        <h5>Sipariş Akışı</h5>
-        <span class="text-secondary small">Müşteri, dikim, tamir ve poşet teslim kodları aynı akışta yönetilir.</span>
+        <div>
+            <span class="mini-etiket">Sipariş ve teslim yönetimi</span>
+            <h5>Sipariş Akışı</h5>
+        </div>
+        <span class="text-secondary small">Başlıklara tıklayarak artan veya azalan sıralayın.</span>
     </div>
     <div class="table-responsive">
         <table class="table tt-table align-middle">
-            <thead><tr><th>Kaynak</th><th>Hizmet</th><th>Başlık</th><th>Müşteri</th><th>Poşet No</th><th>Durum</th><th>Fiyat</th><th>Teslim</th><th></th></tr></thead>
-            <tbody>
-            @foreach (var item in Model)
-            {
-                var activeBag = item.BagReceipts.FirstOrDefault(x => !x.IsDelivered);
+            <thead>
                 <tr>
-                    <td data-label="Kaynak">
-                        @if (item.IsCustomerRequest)
+                    <th>
+                        <a class="sort-link @(Model.SortBy == "title" ? "active" : null)" asp-action="Index"
+                           asp-route-search="@Model.Search" asp-route-status="@Model.Status" asp-route-category="@Model.Category"
+                           asp-route-sortBy="title" asp-route-sortDirection="@NextDirection("title")">
+                            Sipariş <i class="fa-solid @SortIcon("title")"></i>
+                        </a>
+                    </th>
+                    <th>
+                        <a class="sort-link @(Model.SortBy == "customer" ? "active" : null)" asp-action="Index"
+                           asp-route-search="@Model.Search" asp-route-status="@Model.Status" asp-route-category="@Model.Category"
+                           asp-route-sortBy="customer" asp-route-sortDirection="@NextDirection("customer")">
+                            Müşteri <i class="fa-solid @SortIcon("customer")"></i>
+                        </a>
+                    </th>
+                    <th>
+                        <a class="sort-link @(Model.SortBy == "service" ? "active" : null)" asp-action="Index"
+                           asp-route-search="@Model.Search" asp-route-status="@Model.Status" asp-route-category="@Model.Category"
+                           asp-route-sortBy="service" asp-route-sortDirection="@NextDirection("service")">
+                            Hizmet <i class="fa-solid @SortIcon("service")"></i>
+                        </a>
+                    </th>
+                    <th>
+                        <a class="sort-link @(Model.SortBy == "status" ? "active" : null)" asp-action="Index"
+                           asp-route-search="@Model.Search" asp-route-status="@Model.Status" asp-route-category="@Model.Category"
+                           asp-route-sortBy="status" asp-route-sortDirection="@NextDirection("status")">
+                            Durum <i class="fa-solid @SortIcon("status")"></i>
+                        </a>
+                    </th>
+                    <th>
+                        <a class="sort-link @(Model.SortBy == "deliveryDate" ? "active" : null)" asp-action="Index"
+                           asp-route-search="@Model.Search" asp-route-status="@Model.Status" asp-route-category="@Model.Category"
+                           asp-route-sortBy="deliveryDate" asp-route-sortDirection="@NextDirection("deliveryDate")">
+                            Teslim Tarihi <i class="fa-solid @SortIcon("deliveryDate")"></i>
+                        </a>
+                    </th>
+                    <th>
+                        <a class="sort-link @(Model.SortBy == "receipt" ? "active" : null)" asp-action="Index"
+                           asp-route-search="@Model.Search" asp-route-status="@Model.Status" asp-route-category="@Model.Category"
+                           asp-route-sortBy="receipt" asp-route-sortDirection="@NextDirection("receipt")">
+                            Teslim Fişi <i class="fa-solid @SortIcon("receipt")"></i>
+                        </a>
+                    </th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model.Orders)
+            {
+                var activeReceipt = item.BagReceipts
+                    .Where(x => !x.IsDelivered)
+                    .OrderByDescending(x => x.IssuedAt)
+                    .FirstOrDefault();
+                <tr>
+                    <td data-label="Sipariş">
+                        <strong>@item.Title</strong>
+                        <div class="small text-secondary">@item.Category · @item.CreatedByUser?.FullName</div>
+                    </td>
+                    <td data-label="Müşteri">@item.Customer?.FullName</td>
+                    <td data-label="Hizmet"><span class="type-badge @(item.ServiceType == OrderServiceType.Sewing ? "type-sewing" : "type-repair")">@item.ServiceType.GetDisplayName()</span></td>
+                    <td data-label="Durum"><span class="status-badge @item.Status.ToString().ToLower()">@item.Status.GetDisplayName()</span></td>
+                    <td data-label="Teslim Tarihi">@item.DeliveryDate.ToString("dd.MM.yyyy")</td>
+                    <td data-label="Teslim Fişi">
+                        @if (activeReceipt is not null)
                         {
-                            <span class="type-badge type-customer">Müşteri Paneli</span>
+                            <div class="receipt-assigned">
+                                <span class="pickup-code">@activeReceipt.BagNumber</span>
+                                <div>
+                                    <strong>@activeReceipt.ReceiptNumber</strong>
+                                    <small>Teslim kodu: @activeReceipt.PickupCode · @activeReceipt.BagCount poşet</small>
+                                </div>
+                                <a asp-controller="BagReceipts" asp-action="Details" asp-route-id="@activeReceipt.Id" class="btn btn-sm btn-outline-warning">Fişi Aç</a>
+                            </div>
                         }
                         else
                         {
-                            <span class="type-badge type-staff">Atölye Kaydı</span>
+                            <form asp-controller="BagReceipts" asp-action="AssignToOrder" method="post" class="receipt-assign-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="orderId" value="@item.Id" />
+                                <input type="number" name="bagCount" value="1" min="1" max="20" class="form-control form-control-sm" aria-label="Poşet adedi" />
+                                <input type="text" name="note" class="form-control form-control-sm" placeholder="Fiş notu (isteğe bağlı)" maxlength="300" />
+                                <button class="btn btn-sm btn-gold" type="submit"><i class="fa-solid fa-receipt"></i> Fiş Ata</button>
+                            </form>
                         }
-                        <div class="small text-secondary mt-1">@item.CreatedByUser?.FullName</div>
                     </td>
-                    <td data-label="Hizmet"><span class="type-badge @(item.ServiceType == OrderServiceType.Sewing ? "type-sewing" : "type-repair")">@item.ServiceType.GetDisplayName()</span></td>
-                    <td data-label="Başlık">@item.Title<div class="small text-secondary">@item.Category</div></td>
-                    <td data-label="Müşteri">@item.Customer?.FullName</td>
-                    <td data-label="Poşet No">@if (activeBag is not null) { <span class="pickup-code">@activeBag.BagNumber</span> } else { <span class="text-secondary">Atanmadı</span> }</td>
-                    <td data-label="Durum"><span class="status-badge @item.Status.ToString().ToLower()">@item.Status.GetDisplayName()</span></td>
-                    <td data-label="Fiyat">@item.Price.ToString("N0") TL</td>
-                    <td data-label="Teslim">@item.DeliveryDate.ToString("dd.MM.yyyy")</td>
-                    <td class="text-end"><a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-dark">Detay</a> <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">Düzenle</a></td>
+                    <td class="text-end">
+                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-dark">Detay</a>
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">Düzenle</a>
+                    </td>
+                </tr>
+            }
+            @if (Model.Orders.Count == 0)
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state order-empty-state">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <strong>Eşleşen sipariş bulunamadı</strong>
+                            <span>Arama kelimesini değiştirin veya filtreleri temizleyin.</span>
+                        </div>
+                    </td>
                 </tr>
             }
             </tbody>

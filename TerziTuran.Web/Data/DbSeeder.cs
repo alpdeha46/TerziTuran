@@ -6,6 +6,37 @@ namespace TerziTuran.Web.Data;
 
 public static class DbSeeder
 {
+    public static async Task EnsureProductionAdminAsync(
+        AppDbContext context,
+        IConfiguration configuration,
+        IPasswordHasher<User> hasher)
+    {
+        if (await context.Users.AnyAsync(x => x.Role == UserRole.Admin))
+        {
+            return;
+        }
+
+        var password = configuration["BootstrapAdmin:Password"];
+        if (!Services.PasswordPolicy.IsValid(password))
+        {
+            throw new InvalidOperationException(
+                "Ilk yonetici icin BootstrapAdmin:Password ayarlanmalidir. " + Services.PasswordPolicy.ErrorMessage);
+        }
+
+        var admin = new User
+        {
+            FullName = configuration["BootstrapAdmin:FullName"]?.Trim() ?? "Sistem Yoneticisi",
+            Username = configuration["BootstrapAdmin:Username"]?.Trim().ToLowerInvariant() ?? "admin",
+            Email = configuration["BootstrapAdmin:Email"]?.Trim().ToLowerInvariant() ?? "admin@terzituran.local",
+            Role = UserRole.Admin,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        admin.PasswordHash = hasher.HashPassword(admin, password!);
+        context.Users.Add(admin);
+        await context.SaveChangesAsync();
+    }
+
     public static async Task SeedAsync(AppDbContext context)
     {
         await context.Database.MigrateAsync();
@@ -149,6 +180,19 @@ public static class DbSeeder
             {
                 order.IsCustomerRequest = true;
             }
+        }
+
+        if (!await context.Orders.AnyAsync(x => x.Title == "Klasik Yelek Dikimi"))
+        {
+            var historicalOrders = new List<Order>
+            {
+                new() { CustomerId = customers[0].Id, Title = "Klasik Yelek Dikimi", Description = "Kruvaze yelek", Category = "Yelek", ServiceType = OrderServiceType.Sewing, Status = OrderStatus.Delivered, Priority = OrderPriority.Medium, Price = 6200, PaidAmount = 6200, DeliveryDate = DateTime.Today.AddMonths(-5).AddDays(12), CreatedAt = DateTime.UtcNow.AddMonths(-5), CreatedByUserId = admin!.Id },
+                new() { CustomerId = customers[1].Id, Title = "Abiye Boy Ayari", Description = "Etek boyu ve bel ayari", Category = "Abiye", ServiceType = OrderServiceType.Repair, Status = OrderStatus.Delivered, Priority = OrderPriority.High, Price = 2800, PaidAmount = 2800, DeliveryDate = DateTime.Today.AddMonths(-4).AddDays(8), CreatedAt = DateTime.UtcNow.AddMonths(-4), CreatedByUserId = staff!.Id },
+                new() { CustomerId = customers[2].Id, Title = "Yun Palto Dikimi", Description = "Kis sezonu palto", Category = "Palto", ServiceType = OrderServiceType.Sewing, Status = OrderStatus.Delivered, Priority = OrderPriority.Medium, Price = 21000, PaidAmount = 21000, DeliveryDate = DateTime.Today.AddMonths(-3).AddDays(18), CreatedAt = DateTime.UtcNow.AddMonths(-3), CreatedByUserId = admin.Id },
+                new() { CustomerId = customers[0].Id, Title = "Gomlek Kol Daraltma", Description = "Iki gomlek kol daraltma", Category = "Gomlek", ServiceType = OrderServiceType.Repair, Status = OrderStatus.Delivered, Priority = OrderPriority.Low, Price = 1800, PaidAmount = 1800, DeliveryDate = DateTime.Today.AddMonths(-2).AddDays(6), CreatedAt = DateTime.UtcNow.AddMonths(-2), CreatedByUserId = staff.Id },
+                new() { CustomerId = customers[1].Id, Title = "Saten Elbise Prova", Description = "Ozel gun elbisesi", Category = "Elbise", ServiceType = OrderServiceType.Sewing, Status = OrderStatus.Ready, Priority = OrderPriority.High, Price = 12500, PaidAmount = 7500, DeliveryDate = DateTime.Today.AddDays(2), CreatedAt = DateTime.UtcNow.AddMonths(-1), CreatedByUserId = staff.Id }
+            };
+            await context.Orders.AddRangeAsync(historicalOrders);
         }
 
         if (!await context.BagReceipts.AnyAsync())

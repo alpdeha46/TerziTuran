@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -12,6 +14,12 @@ using TerziTuran.Web.Models;
 using TerziTuran.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+{
+    throw new InvalidOperationException("Jwt:Key en az 32 karakter olmali ve guvenli ortam ayarlarindan saglanmalidir.");
+}
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -36,6 +44,13 @@ builder.Services.AddAuthentication(options =>
     options.LoginPath = "/Auth/Login";
     options.AccessDeniedPath = "/Auth/AccessDenied";
     options.Cookie.Name = "TerziTuranAuth";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
 })
 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
@@ -53,6 +68,29 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 8,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+    options.AddPolicy("register", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 4,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+});
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole(UserRole.Admin.ToString()));
@@ -60,8 +98,27 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("CustomerOnly", policy => policy.RequireRole(UserRole.Customer.ToString()));
 });
 
+var configuredCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("MobileAndWebClient", policy =>
+    {
+        policy.SetIsOriginAllowed(origin =>
+            configuredCorsOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase) ||
+            (builder.Environment.IsDevelopment() &&
+             Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
+             (uri.IsLoopback || uri.Host == "10.0.2.2")))
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddControllersWithViews()
-    .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -92,7 +149,16 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await DbSeeder.SeedAsync(db);
+    await db.Database.MigrateAsync();
+    if (app.Environment.IsDevelopment())
+    {
+        await DbSeeder.SeedAsync(db);
+    }
+    else
+    {
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+        await DbSeeder.EnsureProductionAdminAsync(db, builder.Configuration, hasher);
+    }
 }
 
 if (!app.Environment.IsDevelopment())
@@ -104,11 +170,24 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseCors("MobileAndWebClient");
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    context.Response.Headers.XFrameOptions = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    await next();
+});
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.MapControllerRoute(
     name: "default",

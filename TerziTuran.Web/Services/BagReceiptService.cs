@@ -14,6 +14,21 @@ public class BagReceiptService(AppDbContext context) : IBagReceiptService
 {
     public async Task<BagReceipt> CreateAsync(int orderId, int bagCount, string? note)
     {
+        if (!await context.Orders.AnyAsync(x => x.Id == orderId))
+        {
+            throw new InvalidOperationException("Fiş atanacak sipariş bulunamadı.");
+        }
+
+        if (await context.BagReceipts.AnyAsync(x => x.OrderId == orderId && !x.IsDelivered))
+        {
+            throw new InvalidOperationException("Bu siparişe ait aktif bir teslim fişi zaten bulunuyor.");
+        }
+
+        if (bagCount is < 1 or > 20)
+        {
+            throw new InvalidOperationException("Poşet adedi 1 ile 20 arasında olmalıdır.");
+        }
+
         var todayPrefix = DateTime.Now.ToString("yyyyMMdd");
         var countToday = await context.BagReceipts.CountAsync(x => x.IssuedAt.Date == DateTime.Today);
         var receiptNumber = $"TT-{todayPrefix}-{(countToday + 1):D3}";
@@ -49,7 +64,7 @@ public class BagReceiptService(AppDbContext context) : IBagReceiptService
         {
             OrderId = orderId,
             BagCount = bagCount,
-            Note = note,
+            Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
             BagNumber = bagNumber,
             ReceiptNumber = receiptNumber,
             PickupCode = pickupCode,

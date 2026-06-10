@@ -10,22 +10,47 @@ namespace TerziTuran.Web.Controllers;
 [Authorize(Policy = "StaffOrAdmin")]
 public class BagReceiptsController(AppDbContext context, IBagReceiptService bagReceiptService) : Controller
 {
-    public async Task<IActionResult> Index()
+    public IActionResult Index()
         => RedirectToAction("Index", "Orders");
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(BagReceiptCreateViewModel model)
+    public async Task<IActionResult> Create([Bind(Prefix = "NewBagReceipt")] BagReceiptCreateViewModel model)
     {
-        if (model.BagCount < 1)
+        if (!ModelState.IsValid)
         {
-            TempData["Error"] = "Poşet adedi en az 1 olmalıdır.";
+            TempData["Error"] = "Teslim fişi bilgileri geçersiz.";
             return RedirectToAction("Details", "Orders", new { id = model.OrderId });
         }
 
-        var receipt = await bagReceiptService.CreateAsync(model.OrderId, model.BagCount, model.Note);
-        TempData["Success"] = $"Poşet fişi oluşturuldu. Poşet no: {receipt.BagNumber}, teslim kodu: {receipt.PickupCode}";
+        try
+        {
+            var receipt = await bagReceiptService.CreateAsync(model.OrderId, model.BagCount, model.Note);
+            TempData["Success"] = $"Teslim fişi siparişe atandı. Poşet no: {receipt.BagNumber}, teslim kodu: {receipt.PickupCode}";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
         return RedirectToAction("Details", "Orders", new { id = model.OrderId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssignToOrder(int orderId, int bagCount = 1, string? note = null)
+    {
+        try
+        {
+            var receipt = await bagReceiptService.CreateAsync(orderId, bagCount, note);
+            TempData["Success"] = $"Teslim fişi atandı. Poşet no: {receipt.BagNumber}, teslim kodu: {receipt.PickupCode}";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
+        return RedirectToAction("Index", "Orders");
     }
 
     public async Task<IActionResult> Details(int id)
@@ -50,7 +75,21 @@ public class BagReceiptsController(AppDbContext context, IBagReceiptService bagR
         receipt.IsDelivered = !receipt.IsDelivered;
         receipt.DeliveredAt = receipt.IsDelivered ? DateTime.Now : null;
         await context.SaveChangesAsync();
-        TempData["Success"] = receipt.IsDelivered ? "Fiş teslim edildi olarak işaretlendi." : "Fiş tekrar beklemede durumuna alındı.";
+        TempData["Success"] = receipt.IsDelivered ? "Teslim fişi tamamlandı." : "Teslim fişi tekrar aktif duruma alındı.";
         return RedirectToAction("Details", "Orders", new { id = receipt.OrderId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var receipt = await context.BagReceipts.FindAsync(id);
+        if (receipt is null) return NotFound();
+
+        var orderId = receipt.OrderId;
+        context.BagReceipts.Remove(receipt);
+        await context.SaveChangesAsync();
+        TempData["Success"] = "Teslim fişi siparişten kaldırıldı.";
+        return RedirectToAction("Details", "Orders", new { id = orderId });
     }
 }

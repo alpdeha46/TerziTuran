@@ -8,6 +8,11 @@ services:
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      Jwt__Key: ${TERZITURAN_JWT_KEY:?TERZITURAN_JWT_KEY must be set}
+      BootstrapAdmin__Username: ${TERZITURAN_ADMIN_USERNAME:-admin}
+      BootstrapAdmin__FullName: ${TERZITURAN_ADMIN_FULLNAME:-Sistem Yoneticisi}
+      BootstrapAdmin__Email: ${TERZITURAN_ADMIN_EMAIL:-admin@terzituran.local}
+      BootstrapAdmin__Password: ${TERZITURAN_ADMIN_PASSWORD:?TERZITURAN_ADMIN_PASSWORD must be set}
     volumes:
       - terzituran_data:/app/data
     ports:

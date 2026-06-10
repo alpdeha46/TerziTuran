@@ -25,7 +25,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                 return;
             }
 
-            context.Response.Redirect("/Auth/AccessDenied");
+            context.Response.Redirect("/Home/Error");
         }
     }
 }

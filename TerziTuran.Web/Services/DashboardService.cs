@@ -23,15 +23,21 @@ public class DashboardService(AppDbContext context) : IDashboardService
         if (!string.IsNullOrWhiteSpace(category)) orders = orders.Where(x => x.Category == category);
 
         var orderList = await orders.OrderByDescending(x => x.CreatedAt).ToListAsync();
-        var monthGroups = orderList
-            .GroupBy(x => new { x.CreatedAt.Year, x.CreatedAt.Month })
-            .OrderBy(x => x.Key.Year).ThenBy(x => x.Key.Month)
-            .Select(x => new { label = $"{x.Key.Month:00}/{x.Key.Year}", value = x.Count() });
+        var firstMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-5);
+        var months = Enumerable.Range(0, 6).Select(firstMonth.AddMonths).ToList();
+        var monthGroups = months.Select(month => new
+        {
+            label = month.ToString("MMM yy"),
+            value = orderList.Count(x => x.CreatedAt.Year == month.Year && x.CreatedAt.Month == month.Month)
+        });
 
-        var revenueGroups = orderList
-            .GroupBy(x => new { x.CreatedAt.Year, x.CreatedAt.Month })
-            .OrderBy(x => x.Key.Year).ThenBy(x => x.Key.Month)
-            .Select(x => new { label = $"{x.Key.Month:00}/{x.Key.Year}", value = x.Sum(y => y.PaidAmount) });
+        var revenueGroups = months.Select(month => new
+        {
+            label = month.ToString("MMM yy"),
+            value = orderList
+                .Where(x => x.CreatedAt.Year == month.Year && x.CreatedAt.Month == month.Month)
+                .Sum(x => x.PaidAmount)
+        });
 
         var statusGroups = orderList.GroupBy(x => x.Status).Select(x => new { label = x.Key.GetDisplayName(), value = x.Count() });
 

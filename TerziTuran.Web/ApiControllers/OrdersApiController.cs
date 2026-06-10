@@ -15,7 +15,7 @@ namespace TerziTuran.Web.ApiControllers;
 public class OrdersApiController(AppDbContext context) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(ApiResponse<object>.Ok(await context.Orders.Include(x => x.Customer).ToListAsync(), "Siparisler getirildi."));
+    public async Task<IActionResult> GetAll() => Ok(ApiResponse<object>.Ok(await context.Orders.Include(x => x.Customer).Include(x => x.BagReceipts).ToListAsync(), "Siparisler getirildi."));
     [HttpGet("{id:int}")]
     public async Task<IActionResult> Get(int id)
     {

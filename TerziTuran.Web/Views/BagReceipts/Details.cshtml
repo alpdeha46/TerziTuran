@@ -25,5 +25,9 @@
     {
         <div class="info-block mt-3"><strong>Not</strong><span>@Model.Note</span></div>
     }
-    <div class="mt-4 d-flex gap-2"><a asp-action="Print" asp-route-id="@Model.Id" class="btn btn-gold">Yazdır</a><a asp-action="Index" class="btn btn-outline-dark">Listeye Dön</a></div>
+    <div class="mt-4 d-flex gap-2 flex-wrap">
+        <a asp-action="Print" asp-route-id="@Model.Id" class="btn btn-gold">Yazdır</a>
+        <a asp-controller="Orders" asp-action="Details" asp-route-id="@Model.OrderId" class="btn btn-outline-dark">Siparişe Dön</a>
+        <form asp-action="Delete" method="post" onsubmit="return confirm('Teslim fişi siparişten kaldırılsın mı?');">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-danger">Fişi Kaldır</button></form>
+    </div>
 </div>

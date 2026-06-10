@@ -39,8 +39,19 @@
             </div>
             <div class="col-md-6">
                 <div class="sub-card">
-                    <h6>Poşet Fişi Oluştur</h6>
+                    <h6>Teslim Fişi Ata</h6>
+                    @if (Model.BagReceipts.Any(x => !x.IsDelivered))
+                    {
+                        var activeReceipt = Model.BagReceipts.First(x => !x.IsDelivered);
+                        <div class="receipt-active-summary">
+                            <span class="pickup-code">@activeReceipt.BagNumber</span>
+                            <div><strong>Aktif teslim fişi</strong><small>@activeReceipt.ReceiptNumber · Kod: @activeReceipt.PickupCode</small></div>
+                        </div>
+                    }
+                    else
+                    {
                     <form asp-controller="BagReceipts" asp-action="Create" method="post" class="row g-2">@Html.AntiForgeryToken()<input asp-for="NewBagReceipt.OrderId" type="hidden" value="@Model.Order.Id" /><div class="col-12"><label class="form-label">Poşet Adedi</label><input asp-for="NewBagReceipt.BagCount" class="form-control" /></div><div class="col-12"><label class="form-label">Fiş Notu</label><textarea asp-for="NewBagReceipt.Note" class="form-control" placeholder="Örn: Lacivert takım, prova kemeri içinde."></textarea></div><div class="col-12 d-grid"><button class="btn btn-outline-dark btn-receipt">Fiş Oluştur</button></div></form>
+                    }
                 </div>
             </div>
         </div>
@@ -50,7 +61,7 @@
 <div class="col-lg-6"><div class="card soft-card"><h5>Ödeme Geçmişi</h5><table class="table tt-table"><thead><tr><th>Tarih</th><th>Tip</th><th>Tutar</th></tr></thead><tbody>@foreach (var item in Model.Payments) { <tr><td>@item.PaymentDate.ToString("dd.MM.yyyy")</td><td>@item.PaymentType.GetDisplayName()</td><td>@item.Amount.ToString("N0") TL</td></tr> }</tbody></table></div></div>
 <div class="col-12">
     <div class="card soft-card">
-        <div class="card-heading"><h5>Poşet Fişleri</h5><span class="text-secondary small">Aktif poşet numarası boşaldığında yeni siparişe tekrar atanır.</span></div>
+        <div class="card-heading"><h5>Siparişe Atanan Teslim Fişleri</h5><span class="text-secondary small">Aktif fiş tamamlandığında bu siparişe yeni bir teslim fişi atanabilir.</span></div>
         @if (Model.BagReceipts.Any())
         {
             <div class="table-responsive">
@@ -70,6 +81,7 @@
                                 <form asp-controller="BagReceipts" asp-action="ToggleDelivered" method="post" class="d-inline">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@item.Id" /><button class="btn btn-sm @(item.IsDelivered ? "btn-outline-secondary" : "btn-outline-success")">@(item.IsDelivered ? "Beklemeye Al" : "Teslim Edildi")</button></form>
                                 <a asp-controller="BagReceipts" asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-dark">Detay</a>
                                 <a asp-controller="BagReceipts" asp-action="Print" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">Yazdır</a>
+                                <form asp-controller="BagReceipts" asp-action="Delete" method="post" class="d-inline" onsubmit="return confirm('Teslim fişi siparişten kaldırılsın mı?');">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@item.Id" /><button class="btn btn-sm btn-outline-danger">Fişi Kaldır</button></form>
                             </td>
                         </tr>
                     }

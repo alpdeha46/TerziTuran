@@ -12,7 +12,7 @@ TerziTuran, terziler ve konfeksiyon atolyeleri icin gelistirilmis ASP.NET Core M
 - JWT Authentication
 - Bootstrap 5
 - Font Awesome
-- Chart.js
+- Yerel animasyonlu Canvas grafik motoru
 - QuestPDF
 - Swagger
 
@@ -82,14 +82,13 @@ DOTNET_ROLL_FORWARD=Major dotnet run
 Not:
 Bu makinede yalnizca .NET 10 runtime bulundugu icin proje `net8.0` hedefinde olsa bile calistirma ve `dotnet-ef` komutlarinda `DOTNET_ROLL_FORWARD=Major` kullanilmistir.
 
-## Varsayilan Giris Bilgileri
+## Guvenli Giris ve Kayit
 
-- Admin
-  - Kullanici adi: `admin`
-  - Sifre: `Admin123*`
-- Staff
-  - Kullanici adi: `staff`
-  - Sifre: `Staff123*`
+- Musteriler `/Auth/Register` ekranindan hesap olusturabilir ve dogrudan kendi portallarina girer.
+- Acik kayit ucu yalnizca `Customer` rolu olusturur.
+- Giris ve kayit istekleri IP bazli rate-limit ile korunur.
+- Uretimde ornek hesap veya veri eklenmez.
+- Ilk uretim yoneticisi, asagidaki ortam degiskenleriyle guvenli olarak olusturulur.
 
 ## Swagger
 
@@ -129,8 +128,16 @@ dotnet publish -c Release -o ./publish
 
 ```bash
 cd deployment
+export TERZITURAN_JWT_KEY="en-az-32-karakterlik-guclu-ve-rastgele-anahtar"
+export TERZITURAN_ADMIN_PASSWORD="GucluYoneticiSifresi1!"
 docker compose up -d --build
 ```
+
+Istege bagli ilk yonetici degiskenleri:
+
+- `TERZITURAN_ADMIN_USERNAME`
+- `TERZITURAN_ADMIN_FULLNAME`
+- `TERZITURAN_ADMIN_EMAIL`
 
 ### Nginx reverse proxy
 
@@ -166,7 +173,7 @@ sudo certbot certonly --nginx -d terzituran.com -d www.terzituran.com -d terzitu
 
 ## GitHub Kullanim Notlari
 
-- `appsettings.Production.json` icindeki JWT anahtarini uretimde degistirin.
+- JWT anahtarini `TERZITURAN_JWT_KEY` ortam degiskeniyle saglayin; repoya yazmayin.
 - SQLite veritabanini depoya eklemek yerine migration dosyalarini versiyonlayin.
 - Commit oncesinde `dotnet build` ve `dotnet ef database update` ile kontrol yapin.
 
@@ -176,3 +183,23 @@ sudo certbot certonly --nginx -d terzituran.com -d www.terzituran.com -d terzitu
 - Dashboard kartlari, grafikler ve rapor PDF cikisini canli gosterin.
 - Swagger uzerinden JWT login alip korumali endpointleri test edin.
 - Musteri detay sayfasinda iliskili olcu, siparis, odeme ve randevu verilerini tek ekranda anlatin.
+# Terzi Turan
+
+## Flutter Mobil Uygulama
+
+Mobil uygulama `TerziTuran.Mobile` klasöründedir. Android emülatörde varsayılan API adresi
+`http://10.0.2.2:5241`, Windows/macOS çalıştırmalarında `http://127.0.0.1:5241` olarak seçilir.
+
+```powershell
+cd TerziTuran.Mobile
+flutter pub get
+flutter run
+```
+
+Farklı bir sunucu adresi kullanmak için:
+
+```powershell
+flutter run --dart-define=API_URL=https://api.example.com
+```
+
+Üretim paketlerinde mutlaka HTTPS API adresi kullanılmalıdır.

@@ -3,21 +3,32 @@
 <section class="auth-shell">
     <div class="auth-card">
         <div class="auth-hero">
-            <span class="badge rounded-pill text-bg-warning px-3 py-2">TerziTuran</span>
-            <h1>Atölye yönetimini tek ekranda toplayın.</h1>
-            <p>Müşteriler, siparişler, ödemeler ve raporlar için modern bir terzi paneli.</p>
+            <img class="auth-logo" src="~/images/terzituran-wordmark.svg" alt="Terzi Turan" />
+            <div class="auth-hero-copy">
+            <span class="auth-kicker">Kişiye özel. Kusursuz dikim.</span>
+            <h1>Terzilik sanatını <em>ustalıkla</em> yönetin.</h1>
+            <p>Siparişten teslimata, ölçüden tahsilata kadar tüm operasyon tek ve güvenli bir panelde.</p>
+            <div class="auth-feature-list">
+                <span><i class="fa-solid fa-shield-halved"></i> Güvenli hesap erişimi</span>
+                <span><i class="fa-solid fa-chart-line"></i> Canlı operasyon grafikleri</span>
+                <span><i class="fa-solid fa-bolt"></i> Hızlı sipariş takibi</span>
+            </div>
+            </div>
         </div>
         <div class="auth-form-panel">
-            <h2>Giriş Yap</h2>
+            <img class="auth-form-logo" src="~/images/terzituran-mark.svg" alt="" />
+            <span class="mini-etiket">Atölye ve müşteri portalı</span>
+            <h2>Hoş geldiniz</h2>
+            <p class="text-secondary">Hesabınıza güvenli şekilde giriş yapın.</p>
             <form asp-action="Login" method="post" class="row g-3">
                 @Html.AntiForgeryToken()
                 <input asp-for="ReturnUrl" type="hidden" />
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                <div class="col-12"><label asp-for="Username" class="form-label"></label><input asp-for="Username" class="form-control" /><span asp-validation-for="Username" class="text-danger"></span></div>
-                <div class="col-12"><label asp-for="Password" class="form-label"></label><input asp-for="Password" class="form-control" /><span asp-validation-for="Password" class="text-danger"></span></div>
-                <div class="col-12 d-grid"><button class="btn btn-gold btn-lg">Giriş Yap</button></div>
+                <div class="col-12"><label asp-for="Username" class="form-label"></label><div class="input-icon"><i class="fa-solid fa-user"></i><input asp-for="Username" class="form-control" autocomplete="username" placeholder="Kullanıcı adınız" /></div><span asp-validation-for="Username" class="text-danger"></span></div>
+                <div class="col-12"><label asp-for="Password" class="form-label"></label><div class="input-icon"><i class="fa-solid fa-lock"></i><input asp-for="Password" class="form-control" autocomplete="current-password" placeholder="Şifreniz" /></div><span asp-validation-for="Password" class="text-danger"></span></div>
+                <div class="col-12 d-grid"><button class="btn btn-gold btn-lg"><span>Giriş Yap</span><i class="fa-solid fa-arrow-right"></i></button></div>
                 <div class="col-12 auth-links"><a asp-action="Register">Kayıt Ol</a><a asp-action="ForgotPassword">Şifremi Unuttum</a></div>
-                <div class="col-12 small text-secondary">Demo hesaplar: admin / Admin123*, staff / Staff123*, ahmet / Musteri123*</div>
+                <div class="col-12 security-note"><i class="fa-solid fa-circle-check"></i> Oturumunuz güvenli cookie ve istek sınırlamasıyla korunur.</div>
             </form>
         </div>
     </div>

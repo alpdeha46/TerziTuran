@@ -1,6 +1,17 @@
 @using TerziTuran.Web.Extensions
 @model DashboardViewModel
 @{ ViewData["Title"] = "Gösterge Paneli"; }
+<section class="atelier-showcase mb-4">
+    <div class="atelier-showcase-copy">
+        <span class="mini-etiket">Terzi Turan Atölye Yönetimi</span>
+        <h2>Kusursuz işçilik,<br /><em>eksiksiz kontrol.</em></h2>
+        <p>Müşteri, sipariş, ölçü, randevu ve tahsilat akışınızı premium bir çalışma alanından yönetin.</p>
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-controller="Orders" asp-action="Create" class="btn btn-gold"><i class="fa-solid fa-plus"></i> Yeni Sipariş</a>
+            <a asp-controller="Customers" asp-action="Create" class="btn btn-outline-light">Yeni Müşteri</a>
+        </div>
+    </div>
+</section>
 <div class="card soft-card mb-4">
     <form class="row g-3">
         <div class="col-md-3"><label class="form-label">Başlangıç</label><input type="date" name="startDate" value="@ViewBag.StartDate" class="form-control" /></div>
@@ -11,19 +22,19 @@
     </form>
 </div>
 <div class="stats-grid">
-    <div class="stat-card"><span>Toplam Müşteri</span><strong>@Model.TotalCustomers</strong></div>
-    <div class="stat-card"><span>Toplam Sipariş</span><strong>@Model.TotalOrders</strong></div>
-    <div class="stat-card"><span>Bekleyen</span><strong>@Model.PendingOrders</strong></div>
-    <div class="stat-card"><span>Teslim Edilen</span><strong>@Model.DeliveredOrders</strong></div>
-    <div class="stat-card"><span>Toplam Tahsilat</span><strong>@Model.TotalRevenue.ToString("N0") TL</strong></div>
-    <div class="stat-card"><span>Kalan Ödeme</span><strong>@Model.RemainingPayments.ToString("N0") TL</strong></div>
-    <div class="stat-card"><span>Bugünkü Randevu</span><strong>@Model.TodaysAppointments</strong></div>
-    <div class="stat-card"><span>Yaklaşan Teslimat</span><strong>@Model.UpcomingDeliveries</strong></div>
+    <div class="stat-card"><i class="fa-solid fa-users stat-icon"></i><span>Toplam Müşteri</span><strong>@Model.TotalCustomers</strong><small>Müşteri portföyü</small></div>
+    <div class="stat-card"><i class="fa-solid fa-shirt stat-icon"></i><span>Toplam Sipariş</span><strong>@Model.TotalOrders</strong><small>Seçili dönemde</small></div>
+    <div class="stat-card"><i class="fa-solid fa-hourglass-half stat-icon"></i><span>Bekleyen</span><strong>@Model.PendingOrders</strong><small>İşleme alınacak</small></div>
+    <div class="stat-card"><i class="fa-solid fa-circle-check stat-icon"></i><span>Teslim Edilen</span><strong>@Model.DeliveredOrders</strong><small>Tamamlanan iş</small></div>
+    <div class="stat-card"><i class="fa-solid fa-wallet stat-icon"></i><span>Toplam Tahsilat</span><strong>@Model.TotalRevenue.ToString("N0") TL</strong><small>Gerçekleşen gelir</small></div>
+    <div class="stat-card"><i class="fa-solid fa-receipt stat-icon"></i><span>Kalan Ödeme</span><strong>@Model.RemainingPayments.ToString("N0") TL</strong><small>Beklenen tahsilat</small></div>
+    <div class="stat-card"><i class="fa-solid fa-calendar-day stat-icon"></i><span>Bugünkü Randevu</span><strong>@Model.TodaysAppointments</strong><small>Bugünün programı</small></div>
+    <div class="stat-card"><i class="fa-solid fa-truck-fast stat-icon"></i><span>Yaklaşan Teslimat</span><strong>@Model.UpcomingDeliveries</strong><small>Önümüzdeki 7 gün</small></div>
 </div>
 <div class="row g-4 mt-1">
-    <div class="col-lg-8"><div class="card soft-card"><h5>Aylık Sipariş Grafiği</h5><canvas id="ordersChart"></canvas></div></div>
-    <div class="col-lg-4"><div class="card soft-card"><h5>Durum Dağılımı</h5><canvas id="statusChart"></canvas></div></div>
-    <div class="col-lg-12"><div class="card soft-card"><h5>Aylık Tahsilat</h5><canvas id="revenueChart"></canvas></div></div>
+    <div class="col-lg-8"><div class="card soft-card chart-card"><div class="chart-heading"><div><span class="mini-etiket">İş yükü</span><h5>Aylık Sipariş Grafiği</h5></div><i class="fa-solid fa-chart-column"></i></div><canvas id="ordersChart"></canvas></div></div>
+    <div class="col-lg-4"><div class="card soft-card chart-card"><div class="chart-heading"><div><span class="mini-etiket">Dağılım</span><h5>Sipariş Durumları</h5></div><i class="fa-solid fa-chart-pie"></i></div><canvas id="statusChart"></canvas></div></div>
+    <div class="col-lg-12"><div class="card soft-card chart-card chart-wide"><div class="chart-heading"><div><span class="mini-etiket">Finans</span><h5>Aylık Tahsilat</h5></div><i class="fa-solid fa-chart-line"></i></div><canvas id="revenueChart"></canvas></div></div>
 </div>
 <div class="row g-4 mt-1">
     <div class="col-lg-6"><div class="card soft-card"><h5>Son Müşteriler</h5><div class="table-responsive"><table class="table tt-table"><thead><tr><th>Ad</th><th>Telefon</th><th>Tarih</th></tr></thead><tbody>@foreach (var item in Model.RecentCustomers) { <tr><td data-label="Ad">@item.FullName</td><td data-label="Telefon">@item.Phone</td><td data-label="Tarih">@item.CreatedAt.ToString("dd.MM.yyyy")</td></tr> }</tbody></table></div></div></div>
