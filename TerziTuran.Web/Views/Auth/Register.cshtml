@@ -18,7 +18,7 @@
         <div class="auth-form-panel">
             <img class="auth-form-logo" src="~/images/terzituran-mark.svg" alt="" />
             <h2>Üye olun</h2>
-            <p class="text-secondary">Bilgilerinizi girerek güvenli hesabınızı açın.</p>
+            <p class="text-secondary">Bilgilerinizi girin, ardından tek kullanımlık kod ekranına geçin.</p>
             <form asp-action="Register" method="post" class="row g-3">
                 @Html.AntiForgeryToken()
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
@@ -26,10 +26,8 @@
                 <div class="col-md-6"><label asp-for="Username" class="form-label"></label><input asp-for="Username" class="form-control" autocomplete="username" placeholder="Örn: ayseyilmaz" /><span asp-validation-for="Username" class="text-danger"></span></div>
                 <div class="col-md-6"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" autocomplete="email" placeholder="ornek@eposta.com" /><span asp-validation-for="Email" class="text-danger"></span></div>
                 <div class="col-md-6"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" autocomplete="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="Phone" class="text-danger"></span></div>
-                <div class="col-md-6"><label asp-for="Password" class="form-label"></label><input asp-for="Password" class="form-control password-strength-source" autocomplete="new-password" /><div class="password-meter"><span></span></div><span asp-validation-for="Password" class="text-danger"></span></div>
-                <div class="col-md-6"><label asp-for="ConfirmPassword" class="form-label"></label><input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" /><span asp-validation-for="ConfirmPassword" class="text-danger"></span></div>
-                <div class="col-12 security-note"><i class="fa-solid fa-shield-halved"></i> En az 10 karakter; büyük/küçük harf, rakam ve özel karakter kullanın.</div>
-                <div class="col-12 d-grid"><button class="btn btn-gold">Güvenli Hesabımı Oluştur</button></div>
+                <div class="col-12 security-note"><i class="fa-solid fa-shield-halved"></i> Kaydın ardından kod ekranına geçersiniz; kodu girip yeni şifrenizi belirlediğinizde hesabınıza giriş yapılır.</div>
+                <div class="col-12 d-grid"><button class="btn btn-gold">Kod Ekranına Geç</button></div>
                 <div class="col-12 text-center"><a asp-action="Login">Zaten hesabım var</a></div>
             </form>
         </div>

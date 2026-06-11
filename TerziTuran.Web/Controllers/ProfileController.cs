@@ -37,8 +37,10 @@ public class ProfileController(AppDbContext context, IAuthService authService) :
         model.Username = existing.Username;
         model.Role = existing.Role;
         model.PasswordHash = existing.PasswordHash;
+        model.CustomerId = existing.CustomerId;
         model.CreatedAt = existing.CreatedAt;
         model.IsActive = existing.IsActive;
+        model.MustChangePassword = existing.MustChangePassword;
         if (!ModelState.IsValid) return View(model);
         context.Update(model);
         await context.SaveChangesAsync();

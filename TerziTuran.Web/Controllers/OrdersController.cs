@@ -83,7 +83,7 @@ public class OrdersController(AppDbContext context) : Controller
             BagReceipts = await context.BagReceipts.Where(x => x.OrderId == id).OrderByDescending(x => x.IssuedAt).ToListAsync(),
             NewOrderItem = new OrderItem { OrderId = id },
             NewPayment = new Payment { OrderId = id, PaymentDate = DateTime.Today },
-            NewBagReceipt = new ViewModels.BagReceiptCreateViewModel { OrderId = id, BagCount = 1 },
+            NewBagReceipt = new ViewModels.BagReceiptCreateViewModel { OrderId = id, BagCount = order.BagCount },
             UpdateStatus = order.Status
         });
     }

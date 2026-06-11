@@ -1,44 +1,44 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TerziTuran.Web.Data;
 using TerziTuran.Web.Models;
 using TerziTuran.Web.Services;
+using TerziTuran.Web.ViewModels;
 
 namespace TerziTuran.Web.Controllers;
 
 [Authorize(Policy = "AdminOnly")]
-public class UsersController(AppDbContext context, IPasswordHasher<User> hasher) : Controller
+public class UsersController(AppDbContext context, IAuthService authService) : Controller
 {
-    public async Task<IActionResult> Index() => View(await context.Users.OrderBy(x => x.FullName).ToListAsync());
+    public async Task<IActionResult> Index()
+    {
+        var model = new UsersIndexViewModel
+        {
+            Users = await context.Users.OrderBy(x => x.FullName).ToListAsync(),
+        };
+
+        return View(model);
+    }
 
     public IActionResult Create() => View(new User());
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(User model, string password)
+    public async Task<IActionResult> Create(User model)
     {
         ModelState.Remove(nameof(TerziTuran.Web.Models.User.PasswordHash));
-        if (!PasswordPolicy.IsValid(password))
-        {
-            ModelState.AddModelError(string.Empty, PasswordPolicy.ErrorMessage);
-        }
-
-        model.Username = model.Username.Trim().ToLowerInvariant();
-        model.Email = model.Email.Trim().ToLowerInvariant();
-        if (await context.Users.AnyAsync(x => x.Username == model.Username || x.Email == model.Email))
-        {
-            ModelState.AddModelError(string.Empty, "Kullanici adi veya e-posta zaten kullaniliyor.");
-        }
-
         if (!ModelState.IsValid) return View(model);
 
-        model.PasswordHash = hasher.HashPassword(model, password);
-        context.Users.Add(model);
-        await context.SaveChangesAsync();
-        TempData["Success"] = "Kullanici olusturuldu.";
-        return RedirectToAction(nameof(Index));
+        var result = await authService.CreateUserAsync(model);
+        if (!result.Success)
+        {
+            ModelState.AddModelError(string.Empty, result.Message);
+            return View(model);
+        }
+
+        TempData["Success"] = result.Message;
+        return RedirectToAction("Index", "CodeRequests");
     }
 
     public async Task<IActionResult> Edit(int id)
@@ -57,6 +57,9 @@ public class UsersController(AppDbContext context, IPasswordHasher<User> hasher)
         var existing = await context.Users.AsNoTracking().FirstAsync(x => x.Id == id);
         model.PasswordHash = existing.PasswordHash;
         model.Username = existing.Username;
+        model.CustomerId = existing.CustomerId;
+        model.CreatedAt = existing.CreatedAt;
+        model.MustChangePassword = existing.MustChangePassword;
         model.Email = model.Email.Trim().ToLowerInvariant();
         if (await context.Users.AnyAsync(x => x.Id != id && x.Email == model.Email))
         {

@@ -23,6 +23,7 @@
         <div class="col-md-4"><label asp-for="Priority" class="form-label"></label><select asp-for="Priority" asp-items="Html.GetEnumSelectList<OrderPriority>()" class="form-select"></select></div>
         <div class="col-md-6"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="5"></textarea></div>
         <div class="col-md-2"><label asp-for="DeliveryDate" class="form-label"></label><input asp-for="DeliveryDate" type="date" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="BagCount" class="form-label"></label><input asp-for="BagCount" type="number" min="1" max="20" class="form-control" /></div>
         <div class="col-md-2"><label asp-for="Price" class="form-label"></label><input asp-for="Price" class="form-control" /></div>
         <div class="col-md-2"><label asp-for="PaidAmount" class="form-label"></label><input asp-for="PaidAmount" class="form-control" /></div>
         <div class="col-12 d-flex gap-2"><button class="btn btn-gold">Kaydet</button><a asp-action="Index" class="btn btn-outline-light">İptal</a></div>

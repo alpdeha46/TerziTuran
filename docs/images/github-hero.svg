@@ -1,0 +1,39 @@
+<svg width="1600" height="820" viewBox="0 0 1600 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="820" rx="36" fill="#0B0D0C"/>
+  <rect x="28" y="28" width="1544" height="764" rx="30" fill="url(#bg)" stroke="#3D3323"/>
+  <circle cx="1460" cy="124" r="180" fill="#D2A96D" fill-opacity="0.08"/>
+  <circle cx="160" cy="700" r="220" fill="#D2A96D" fill-opacity="0.06"/>
+  <text x="90" y="120" fill="#D2A96D" font-family="Georgia, serif" font-size="34" font-weight="700">TERZI TURAN PLATFORMU</text>
+  <text x="90" y="192" fill="#F4E8D6" font-family="Georgia, serif" font-size="72" font-weight="700">Web + Mobil terzi yönetimi</text>
+  <text x="90" y="246" fill="#E6D1B0" font-family="Arial, sans-serif" font-size="28">Sipariş, müşteri, randevu, ödeme, aktivasyon kodu ve teslim fişi süreçleri tek akışta.</text>
+
+  <rect x="90" y="318" width="420" height="176" rx="24" fill="#151715" stroke="#4C3E2B"/>
+  <text x="124" y="368" fill="#D2A96D" font-family="Arial, sans-serif" font-size="24" font-weight="700">Web Yönetim Masası</text>
+  <text x="124" y="414" fill="#F9F3EA" font-family="Arial, sans-serif" font-size="22">Admin / Staff</text>
+  <text x="124" y="452" fill="#BFAF97" font-family="Arial, sans-serif" font-size="20">Müşteriler, siparişler, ödemeler,</text>
+  <text x="124" y="482" fill="#BFAF97" font-family="Arial, sans-serif" font-size="20">randevular ve kod talepleri</text>
+
+  <rect x="544" y="318" width="420" height="176" rx="24" fill="#151715" stroke="#4C3E2B"/>
+  <text x="578" y="368" fill="#D2A96D" font-family="Arial, sans-serif" font-size="24" font-weight="700">Mobil Deneyim</text>
+  <text x="578" y="414" fill="#F9F3EA" font-family="Arial, sans-serif" font-size="22">Admin / Staff / Customer</text>
+  <text x="578" y="452" fill="#BFAF97" font-family="Arial, sans-serif" font-size="20">Müşteri paneli, sipariş takibi,</text>
+  <text x="578" y="482" fill="#BFAF97" font-family="Arial, sans-serif" font-size="20">randevu ve sipariş oluşturma</text>
+
+  <rect x="998" y="318" width="512" height="176" rx="24" fill="#151715" stroke="#4C3E2B"/>
+  <text x="1032" y="368" fill="#D2A96D" font-family="Arial, sans-serif" font-size="24" font-weight="700">Güvenli Kimlik ve Operasyon</text>
+  <text x="1032" y="414" fill="#F9F3EA" font-family="Arial, sans-serif" font-size="22">JWT + Cookie + Tek Kullanımlık Kod</text>
+  <text x="1032" y="452" fill="#BFAF97" font-family="Arial, sans-serif" font-size="20">Aktivasyon, şifre yenileme,</text>
+  <text x="1032" y="482" fill="#BFAF97" font-family="Arial, sans-serif" font-size="20">fiş atama ve poşet takibi</text>
+
+  <rect x="90" y="554" width="1420" height="166" rx="24" fill="#111311" stroke="#3E3325"/>
+  <text x="124" y="608" fill="#F4E8D6" font-family="Georgia, serif" font-size="36" font-weight="700">Atölye akışı</text>
+  <text x="124" y="652" fill="#D2A96D" font-family="Arial, sans-serif" font-size="24">Kayıt → Kod Talebi → Aktivasyon → Sipariş → Fiş Atama → Teslim</text>
+  <text x="124" y="692" fill="#BFAF97" font-family="Arial, sans-serif" font-size="20">TerziTuran, operasyonu masaüstü ve mobil arasında aynı iş kurallarıyla taşır.</text>
+
+  <defs>
+    <linearGradient id="bg" x1="140" y1="54" x2="1450" y2="770" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111311"/>
+      <stop offset="1" stop-color="#1A1916"/>
+    </linearGradient>
+  </defs>
+</svg>

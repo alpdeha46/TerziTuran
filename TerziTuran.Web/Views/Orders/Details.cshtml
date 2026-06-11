@@ -22,6 +22,7 @@
             <div><span>Ödenen</span><strong>@Model.Order.PaidAmount.ToString("N0") TL</strong></div>
             <div><span>Kalan</span><strong>@((Model.Order.Price-Model.Order.PaidAmount).ToString("N0")) TL</strong></div>
             <div><span>Teslim Tarihi</span><strong>@Model.Order.DeliveryDate.ToString("dd.MM.yyyy")</strong></div>
+            <div><span>Poşet Adedi</span><strong>@Model.Order.BagCount</strong></div>
             <div><span>Oluşturma</span><strong>@Model.Order.CreatedAt.ToString("dd.MM.yyyy")</strong></div>
         </div>
     </div>
@@ -45,12 +46,13 @@
                         var activeReceipt = Model.BagReceipts.First(x => !x.IsDelivered);
                         <div class="receipt-active-summary">
                             <span class="pickup-code">@activeReceipt.BagNumber</span>
-                            <div><strong>Aktif teslim fişi</strong><small>@activeReceipt.ReceiptNumber · Kod: @activeReceipt.PickupCode</small></div>
+                            <div><strong>Aktif teslim fişi</strong><small>@activeReceipt.ReceiptNumber · Kod: @activeReceipt.PickupCode · @activeReceipt.BagCount poşet</small></div>
                         </div>
                     }
                     else
                     {
-                    <form asp-controller="BagReceipts" asp-action="Create" method="post" class="row g-2">@Html.AntiForgeryToken()<input asp-for="NewBagReceipt.OrderId" type="hidden" value="@Model.Order.Id" /><div class="col-12"><label class="form-label">Poşet Adedi</label><input asp-for="NewBagReceipt.BagCount" class="form-control" /></div><div class="col-12"><label class="form-label">Fiş Notu</label><textarea asp-for="NewBagReceipt.Note" class="form-control" placeholder="Örn: Lacivert takım, prova kemeri içinde."></textarea></div><div class="col-12 d-grid"><button class="btn btn-outline-dark btn-receipt">Fiş Oluştur</button></div></form>
+                    <div class="small text-warning mb-2">Fiş Atama Bekliyor</div>
+                    <form asp-controller="BagReceipts" asp-action="Create" method="post" class="row g-2">@Html.AntiForgeryToken()<input asp-for="NewBagReceipt.OrderId" type="hidden" value="@Model.Order.Id" /><div class="col-12"><label class="form-label">Poşet Adedi</label><input asp-for="NewBagReceipt.BagCount" class="form-control" value="@Model.Order.BagCount" /></div><div class="col-12"><label class="form-label">Fiş Notu</label><textarea asp-for="NewBagReceipt.Note" class="form-control" placeholder="Örn: Lacivert takım, prova kemeri içinde."></textarea></div><div class="col-12 d-grid"><button class="btn btn-outline-dark btn-receipt">Fiş Oluştur</button></div></form>
                     }
                 </div>
             </div>

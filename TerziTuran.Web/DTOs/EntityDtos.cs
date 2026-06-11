@@ -44,6 +44,7 @@ public class OrderDto
     [Range(0, 999999)] public decimal Price { get; set; }
     [Range(0, 999999)] public decimal PaidAmount { get; set; }
     public DateTime DeliveryDate { get; set; }
+    [Range(1, 20)] public int BagCount { get; set; } = 1;
     public DateTime CreatedAt { get; set; }
 }
 

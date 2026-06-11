@@ -1,0 +1,38 @@
+<svg width="1600" height="860" viewBox="0 0 1600 860" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="860" rx="36" fill="#0B0D0C"/>
+  <rect x="30" y="30" width="1540" height="800" rx="28" fill="#121413" stroke="#403424"/>
+  <text x="90" y="120" fill="#D2A96D" font-family="Georgia, serif" font-size="46" font-weight="700">Rol Matrisi</text>
+  <text x="90" y="168" fill="#C7B79E" font-family="Arial, sans-serif" font-size="24">Web ve mobil tarafta rol ayrımı aynı mantıkla çalışır.</text>
+
+  <rect x="90" y="230" width="1420" height="90" rx="18" fill="#1A1D1A"/>
+  <text x="140" y="287" fill="#F7F0E6" font-family="Arial, sans-serif" font-size="28" font-weight="700">Yetki / Ekran</text>
+  <text x="760" y="287" fill="#F7F0E6" font-family="Arial, sans-serif" font-size="28" font-weight="700">Admin</text>
+  <text x="1038" y="287" fill="#F7F0E6" font-family="Arial, sans-serif" font-size="28" font-weight="700">Staff</text>
+  <text x="1295" y="287" fill="#F7F0E6" font-family="Arial, sans-serif" font-size="28" font-weight="700">Customer</text>
+
+  <g font-family="Arial, sans-serif" font-size="24">
+    <rect x="90" y="344" width="1420" height="82" rx="16" fill="#151715"/>
+    <text x="140" y="394" fill="#E8D8BF">Dashboard ve operasyon özeti</text>
+    <text x="788" y="394" fill="#D2A96D">✓</text>
+    <text x="1066" y="394" fill="#D2A96D">✓</text>
+    <text x="1326" y="394" fill="#958871">Sade müşteri paneli</text>
+
+    <rect x="90" y="442" width="1420" height="82" rx="16" fill="#151715"/>
+    <text x="140" y="492" fill="#E8D8BF">Kod Talepleri ve kopyalama</text>
+    <text x="788" y="492" fill="#D2A96D">✓</text>
+    <text x="1066" y="492" fill="#8A7A61">-</text>
+    <text x="1326" y="492" fill="#8A7A61">-</text>
+
+    <rect x="90" y="540" width="1420" height="82" rx="16" fill="#151715"/>
+    <text x="140" y="590" fill="#E8D8BF">Sipariş yönetimi ve fiş atama</text>
+    <text x="788" y="590" fill="#D2A96D">✓</text>
+    <text x="1066" y="590" fill="#D2A96D">✓</text>
+    <text x="1326" y="590" fill="#958871">Kendi talepleri</text>
+
+    <rect x="90" y="638" width="1420" height="82" rx="16" fill="#151715"/>
+    <text x="140" y="688" fill="#E8D8BF">Müşteri, ödeme ve randevu görünümü</text>
+    <text x="788" y="688" fill="#D2A96D">✓</text>
+    <text x="1066" y="688" fill="#D2A96D">✓</text>
+    <text x="1326" y="688" fill="#D2A96D">✓</text>
+  </g>
+</svg>

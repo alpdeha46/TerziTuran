@@ -12,6 +12,14 @@ public enum UserRole
     Customer = 3
 }
 
+public enum PasswordRequestType
+{
+    [Display(Name = "Ilk Giris Aktivasyonu")]
+    Activation = 1,
+    [Display(Name = "Sifremi Unuttum")]
+    ForgotPassword = 2
+}
+
 public enum OrderStatus
 {
     [Display(Name = "Beklemede")]

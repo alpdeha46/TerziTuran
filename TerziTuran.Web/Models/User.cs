@@ -38,6 +38,9 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     [Display(Name = "Aktif Mi?")]
     public bool IsActive { get; set; } = true;
+    [Display(Name = "Yeni Sifre Gerekli Mi?")]
+    public bool MustChangePassword { get; set; } = true;
 
     public ICollection<Order> Orders { get; set; } = new List<Order>();
+    public ICollection<UserPasswordRequest> PasswordRequests { get; set; } = new List<UserPasswordRequest>();
 }

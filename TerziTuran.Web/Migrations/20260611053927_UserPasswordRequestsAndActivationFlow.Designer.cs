@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TerziTuran.Web.Data;
 
@@ -10,9 +11,11 @@ using TerziTuran.Web.Data;
 namespace TerziTuran.Web.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611053927_UserPasswordRequestsAndActivationFlow")]
+    partial class UserPasswordRequestsAndActivationFlow
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
@@ -195,9 +198,6 @@ namespace TerziTuran.Web.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("BagCount")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Category")
@@ -383,14 +383,8 @@ namespace TerziTuran.Web.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("DispatchedAt")
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDispatched")
-                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsUsed")
                         .HasColumnType("INTEGER");
@@ -406,7 +400,7 @@ namespace TerziTuran.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId", "RequestType", "IsUsed", "IsDispatched");
+                    b.HasIndex("UserId", "RequestType", "IsUsed");
 
                     b.ToTable("UserPasswordRequests");
                 });

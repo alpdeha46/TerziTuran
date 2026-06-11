@@ -1,0 +1,50 @@
+<svg width="1600" height="780" viewBox="0 0 1600 780" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="780" rx="36" fill="#0B0D0C"/>
+  <rect x="30" y="30" width="1540" height="720" rx="28" fill="#121413" stroke="#403424"/>
+  <text x="90" y="118" fill="#D2A96D" font-family="Georgia, serif" font-size="46" font-weight="700">Aktivasyon ve Şifre Akışı</text>
+  <text x="90" y="166" fill="#C7B79E" font-family="Arial, sans-serif" font-size="24">Aynı mantık hem web hem mobil için geçerlidir.</text>
+
+  <g>
+    <rect x="90" y="280" width="220" height="160" rx="24" fill="#151715" stroke="#4C3E2B"/>
+    <text x="130" y="340" fill="#F7F0E6" font-family="Arial, sans-serif" font-size="28" font-weight="700">1. Kayıt</text>
+    <text x="130" y="384" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">Yeni kullanıcı</text>
+    <text x="130" y="416" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">müşteri olarak açılır</text>
+  </g>
+
+  <g>
+    <rect x="390" y="280" width="220" height="160" rx="24" fill="#151715" stroke="#4C3E2B"/>
+    <text x="430" y="340" fill="#F7F0E6" font-family="Arial, sans-serif" font-size="28" font-weight="700">2. Kod</text>
+    <text x="430" y="384" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">Tek kullanımlık kod</text>
+    <text x="430" y="416" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">Kod Talepleri'ne düşer</text>
+  </g>
+
+  <g>
+    <rect x="690" y="280" width="220" height="160" rx="24" fill="#151715" stroke="#4C3E2B"/>
+    <text x="726" y="340" fill="#F7F0E6" font-family="Arial, sans-serif" font-size="28" font-weight="700">3. Kopyala</text>
+    <text x="726" y="384" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">Admin kodu alır</text>
+    <text x="726" y="416" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">ve talep listeden düşer</text>
+  </g>
+
+  <g>
+    <rect x="990" y="280" width="220" height="160" rx="24" fill="#151715" stroke="#4C3E2B"/>
+    <text x="1028" y="340" fill="#F7F0E6" font-family="Arial, sans-serif" font-size="28" font-weight="700">4. Aktivasyon</text>
+    <text x="1028" y="384" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">Kullanıcı kodu girer</text>
+    <text x="1028" y="416" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">ve şifresini belirler</text>
+  </g>
+
+  <g>
+    <rect x="1290" y="280" width="220" height="160" rx="24" fill="#151715" stroke="#4C3E2B"/>
+    <text x="1328" y="340" fill="#F7F0E6" font-family="Arial, sans-serif" font-size="28" font-weight="700">5. Giriş</text>
+    <text x="1328" y="384" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">Hesap aktif olur</text>
+    <text x="1328" y="416" fill="#C8B69A" font-family="Arial, sans-serif" font-size="22">ve normal kullanım başlar</text>
+  </g>
+
+  <path d="M310 360H390" stroke="#D2A96D" stroke-width="8" stroke-linecap="round"/>
+  <path d="M610 360H690" stroke="#D2A96D" stroke-width="8" stroke-linecap="round"/>
+  <path d="M910 360H990" stroke="#D2A96D" stroke-width="8" stroke-linecap="round"/>
+  <path d="M1210 360H1290" stroke="#D2A96D" stroke-width="8" stroke-linecap="round"/>
+
+  <rect x="90" y="536" width="1420" height="126" rx="24" fill="#111311" stroke="#3E3325"/>
+  <text x="126" y="590" fill="#D2A96D" font-family="Arial, sans-serif" font-size="28" font-weight="700">Şifremi unuttum</text>
+  <text x="126" y="632" fill="#E8D8BF" font-family="Arial, sans-serif" font-size="24">Aynı yapı tekrar kullanılır: talep oluşturulur, kod admin ekranına düşer, kullanıcı kodla yeni şifre belirler.</text>
+</svg>

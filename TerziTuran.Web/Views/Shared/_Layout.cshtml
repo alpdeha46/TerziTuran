@@ -61,6 +61,7 @@
                             @if (User.IsInRole("Admin"))
                             {
                                 <a class="nav-link menü-link" asp-controller="Users" asp-action="Index"><i class="fa-solid fa-user-shield"></i> Kullanıcılar</a>
+                                <a class="nav-link menü-link" asp-controller="CodeRequests" asp-action="Index"><i class="fa-solid fa-key"></i> Kod Talepleri</a>
                             }
                             <a class="nav-link menü-link" asp-controller="Profile" asp-action="Index"><i class="fa-solid fa-address-card"></i> Profil</a>
                         }

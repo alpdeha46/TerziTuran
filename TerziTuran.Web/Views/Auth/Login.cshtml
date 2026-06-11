@@ -27,7 +27,7 @@
                 <div class="col-12"><label asp-for="Username" class="form-label"></label><div class="input-icon"><i class="fa-solid fa-user"></i><input asp-for="Username" class="form-control" autocomplete="username" placeholder="Kullanıcı adınız" /></div><span asp-validation-for="Username" class="text-danger"></span></div>
                 <div class="col-12"><label asp-for="Password" class="form-label"></label><div class="input-icon"><i class="fa-solid fa-lock"></i><input asp-for="Password" class="form-control" autocomplete="current-password" placeholder="Şifreniz" /></div><span asp-validation-for="Password" class="text-danger"></span></div>
                 <div class="col-12 d-grid"><button class="btn btn-gold btn-lg"><span>Giriş Yap</span><i class="fa-solid fa-arrow-right"></i></button></div>
-                <div class="col-12 auth-links"><a asp-action="Register">Kayıt Ol</a><a asp-action="ForgotPassword">Şifremi Unuttum</a></div>
+                <div class="col-12 auth-links"><a asp-action="Register">Kayıt Ol</a><a asp-action="CompleteActivation">Kodum Var</a><a asp-action="ForgotPassword">Şifremi Unuttum</a></div>
                 <div class="col-12 security-note"><i class="fa-solid fa-circle-check"></i> Oturumunuz güvenli cookie ve istek sınırlamasıyla korunur.</div>
             </form>
         </div>

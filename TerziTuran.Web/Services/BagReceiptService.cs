@@ -14,7 +14,8 @@ public class BagReceiptService(AppDbContext context) : IBagReceiptService
 {
     public async Task<BagReceipt> CreateAsync(int orderId, int bagCount, string? note)
     {
-        if (!await context.Orders.AnyAsync(x => x.Id == orderId))
+        var order = await context.Orders.FirstOrDefaultAsync(x => x.Id == orderId);
+        if (order is null)
         {
             throw new InvalidOperationException("Fiş atanacak sipariş bulunamadı.");
         }
@@ -29,9 +30,12 @@ public class BagReceiptService(AppDbContext context) : IBagReceiptService
             throw new InvalidOperationException("Poşet adedi 1 ile 20 arasında olmalıdır.");
         }
 
-        var todayPrefix = DateTime.Now.ToString("yyyyMMdd");
-        var countToday = await context.BagReceipts.CountAsync(x => x.IssuedAt.Date == DateTime.Today);
-        var receiptNumber = $"TT-{todayPrefix}-{(countToday + 1):D3}";
+        if (order.BagCount != bagCount)
+        {
+            order.BagCount = bagCount;
+        }
+
+        var receiptNumber = await GenerateNextReceiptNumberAsync();
         var activeNumbers = await context.BagReceipts
             .Where(x => !x.IsDelivered)
             .Select(x => x.BagNumber)
@@ -63,7 +67,7 @@ public class BagReceiptService(AppDbContext context) : IBagReceiptService
         var receipt = new BagReceipt
         {
             OrderId = orderId,
-            BagCount = bagCount,
+            BagCount = order.BagCount,
             Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
             BagNumber = bagNumber,
             ReceiptNumber = receiptNumber,
@@ -73,7 +77,15 @@ public class BagReceiptService(AppDbContext context) : IBagReceiptService
         };
 
         context.BagReceipts.Add(receipt);
-        await context.SaveChangesAsync();
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            throw new InvalidOperationException("Teslim fişi oluşturulurken numara çakıştı. Lütfen tekrar deneyin.");
+        }
+
         return receipt;
     }
 
@@ -82,4 +94,26 @@ public class BagReceiptService(AppDbContext context) : IBagReceiptService
             .OrderByDescending(x => x.IssuedAt)
             .Take(100)
             .ToListAsync();
+
+    private async Task<string> GenerateNextReceiptNumberAsync()
+    {
+        var todayPrefix = DateTime.Now.ToString("yyyyMMdd");
+        var prefix = $"TT-{todayPrefix}-";
+
+        var todayNumbers = await context.BagReceipts
+            .Where(x => x.ReceiptNumber.StartsWith(prefix))
+            .Select(x => x.ReceiptNumber)
+            .ToListAsync();
+
+        var nextSequence = todayNumbers
+            .Select(x =>
+            {
+                var suffix = x.Length > prefix.Length ? x[prefix.Length..] : string.Empty;
+                return int.TryParse(suffix, out var value) ? value : 0;
+            })
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+
+        return $"{prefix}{nextSequence:D3}";
+    }
 }

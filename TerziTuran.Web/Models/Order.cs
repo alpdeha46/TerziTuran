@@ -53,6 +53,10 @@ public class Order
     [DataType(DataType.Date)]
     public DateTime DeliveryDate { get; set; }
 
+    [Display(Name = "Poşet Adedi")]
+    [Range(1, 20, ErrorMessage = "Poşet adedi 1 ile 20 arasında olmalıdır.")]
+    public int BagCount { get; set; } = 1;
+
     [Display(Name = "Olusturma Tarihi")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     [Display(Name = "Musteri Talebi")]

@@ -111,3 +111,13 @@ public class BagReceiptCreateViewModel
     [System.ComponentModel.DataAnnotations.StringLength(300)]
     public string? Note { get; set; }
 }
+
+public class UsersIndexViewModel
+{
+    public List<User> Users { get; set; } = [];
+}
+
+public class CodeRequestsViewModel
+{
+    public List<UserPasswordRequest> Requests { get; set; } = [];
+}

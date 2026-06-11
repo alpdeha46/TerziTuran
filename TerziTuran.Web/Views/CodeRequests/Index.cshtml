@@ -1,0 +1,75 @@
+@model CodeRequestsViewModel
+@{
+    ViewData["Title"] = "Kod Talepleri";
+}
+
+<div class="card soft-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="h5 mb-1">Kod Talepleri</h3>
+            <div class="text-secondary small">Kopyalanan talepler listeden aninda duser. Kod kullanici tarafinda gecerliligini korur.</div>
+        </div>
+        <span class="badge text-bg-dark">@Model.Requests.Count aktif talep</span>
+    </div>
+
+    @if (Model.Requests.Count == 0)
+    {
+        <div class="text-secondary">Bekleyen kod talebi bulunmuyor.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Kullanici</th>
+                        <th>Tur</th>
+                        <th>Kod</th>
+                        <th>Olusturma</th>
+                        <th>Son Gecerlilik</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var request in Model.Requests)
+                {
+                    <tr>
+                        <td>
+                            <strong>@request.User?.FullName</strong>
+                            <div class="small text-secondary">@request.User?.Username • @request.User?.Email</div>
+                        </td>
+                        <td>@request.RequestType</td>
+                        <td><code>@request.Code</code></td>
+                        <td>@request.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>@request.ExpiresAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        <td class="text-end">
+                            <form asp-action="Dispatch" method="post" class="dispatch-form d-inline" data-code="@request.Code">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@request.Id" />
+                                <button type="submit" class="btn btn-sm btn-gold">Kopyala</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.dispatch-form').forEach(function (form) {
+            form.addEventListener('submit', async function (event) {
+                event.preventDefault();
+                const code = form.getAttribute('data-code') || '';
+                try {
+                    await navigator.clipboard.writeText(code);
+                    form.submit();
+                } catch {
+                    alert('Kod kopyalanamadi. Tarayici izinlerini kontrol edin.');
+                }
+            });
+        });
+    </script>
+}

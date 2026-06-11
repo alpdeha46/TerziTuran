@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
@@ -62,7 +63,11 @@ class _TerziTuranAppState extends State<TerziTuranApp> {
       home: _authenticated == null
           ? const SplashScreen()
           : _authenticated!
-          ? Shell(onLogout: () => setState(() => _authenticated = false))
+          ? (ApiService.instance.user?.role == 'Customer'
+                ? CustomerShell(
+                    onLogout: () => setState(() => _authenticated = false),
+                  )
+                : Shell(onLogout: () => setState(() => _authenticated = false)))
           : AuthScreen(
               onAuthenticated: () => setState(() => _authenticated = true),
             ),
@@ -80,6 +85,8 @@ class SplashScreen extends StatelessWidget {
   );
 }
 
+enum AuthMode { login, register, activation, forgotPassword, resetPassword }
+
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key, required this.onAuthenticated});
   final VoidCallback onAuthenticated;
@@ -90,38 +97,161 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _username = TextEditingController();
   final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
   final _fullName = TextEditingController();
   final _email = TextEditingController();
   final _phone = TextEditingController();
-  bool register = false;
+  final _code = TextEditingController();
+  AuthMode mode = AuthMode.login;
   bool loading = false;
   bool obscure = true;
+  bool obscureConfirm = true;
+  int? pendingUserId;
   String? error;
+  String? info;
 
   Future<void> submit() async {
     setState(() {
       loading = true;
       error = null;
+      info = null;
     });
     try {
-      if (register) {
-        await ApiService.instance.register(
-          fullName: _fullName.text.trim(),
-          username: _username.text.trim(),
-          email: _email.text.trim(),
-          password: _password.text,
-          phone: _phone.text.trim(),
-        );
-      } else {
-        await ApiService.instance.login(_username.text.trim(), _password.text);
+      switch (mode) {
+        case AuthMode.register:
+          final activation = await ApiService.instance.register(
+            fullName: _fullName.text.trim(),
+            username: _username.text.trim(),
+            email: _email.text.trim(),
+            phone: _phone.text.trim(),
+          );
+          setState(() {
+            pendingUserId = activation.userId;
+            _username.text = activation.username;
+            _password.clear();
+            mode = AuthMode.activation;
+            info =
+                'Kaydınız alındı. Yönetici tarafındaki Şifre Talepleri bölümünden aktivasyon kodunu alıp devam edin.';
+          });
+          return;
+        case AuthMode.activation:
+          final normalizedUsername = _username.text.trim();
+          if (normalizedUsername.isEmpty) {
+            throw ApiException(
+              'Aktivasyon için kullanici adinizi girin.',
+            );
+          }
+          if (_password.text != _confirmPassword.text) {
+            throw ApiException('Yeni şifre ve tekrarı aynı olmalı.');
+          }
+          await ApiService.instance.activate(
+            userId: pendingUserId,
+            username: normalizedUsername,
+            code: _code.text.trim(),
+            newPassword: _password.text,
+          );
+          widget.onAuthenticated();
+          return;
+        case AuthMode.forgotPassword:
+          await ApiService.instance.requestPasswordReset(_email.text.trim());
+          setState(() {
+            mode = AuthMode.resetPassword;
+            info =
+                'Tek kullanımlık kod oluşturulduysa yönetici panelindeki Şifre Talepleri alanında görünecek.';
+          });
+          return;
+        case AuthMode.resetPassword:
+          if (_password.text != _confirmPassword.text) {
+            throw ApiException('Yeni şifre ve tekrarı aynı olmalı.');
+          }
+          await ApiService.instance.resetPassword(
+            email: _email.text.trim(),
+            code: _code.text.trim(),
+            newPassword: _password.text,
+          );
+          setState(() {
+            mode = AuthMode.login;
+            info = 'Şifreniz yenilendi. Yeni şifrenizle giriş yapabilirsiniz.';
+            _password.clear();
+            _confirmPassword.clear();
+            _code.clear();
+          });
+          return;
+        case AuthMode.login:
+          try {
+            await ApiService.instance.login(_username.text.trim(), _password.text);
+            widget.onAuthenticated();
+          } on ActivationRequiredException catch (e) {
+            setState(() {
+              pendingUserId = e.userId;
+              _username.text = e.username;
+              _password.clear();
+              _confirmPassword.clear();
+              _code.clear();
+              mode = AuthMode.activation;
+              info =
+                  'Bu hesap için tek kullanımlık aktivasyon kodu gerekli. Kodu yöneticiden alıp yeni şifrenizi oluşturun.';
+            });
+          }
+          return;
       }
-      widget.onAuthenticated();
     } catch (e) {
       setState(() => error = e.toString());
     } finally {
       if (mounted) setState(() => loading = false);
     }
   }
+
+  void changeMode(AuthMode nextMode) {
+    setState(() {
+      mode = nextMode;
+      error = null;
+      info = null;
+      _password.clear();
+      _confirmPassword.clear();
+      _code.clear();
+      if (nextMode == AuthMode.login) {
+        pendingUserId = null;
+      }
+    });
+  }
+
+  String get _title => switch (mode) {
+    AuthMode.login => 'Atölyeye hoş geldiniz',
+    AuthMode.register => 'Yeni üyelik oluştur',
+    AuthMode.activation => 'Aktivasyon kodunu gir',
+    AuthMode.forgotPassword => 'Şifremi unuttum',
+    AuthMode.resetPassword => 'Yeni şifre oluştur',
+  };
+
+  String get _subtitle => switch (mode) {
+    AuthMode.login => 'Kişiye özel terzilik yönetimi cebinizde.',
+    AuthMode.register => 'İlk girişte yönetici onaylı tek kullanımlık kod gerekir.',
+    AuthMode.activation =>
+      'Tek kullanımlık kod ile hesabınızı aktifleştirip yeni şifrenizi belirleyin.',
+    AuthMode.forgotPassword =>
+      'E-posta adresinizi girin, talep kodu yönetici ekranına düşsün.',
+    AuthMode.resetPassword =>
+      'Tek kullanımlık kodu doğrulayın ve yeni şifrenizi oluşturun.',
+  };
+
+  String get _buttonLabel => loading
+      ? 'Bekleyin...'
+      : switch (mode) {
+          AuthMode.login => 'Giriş Yap',
+          AuthMode.register => 'Üyelik Oluştur',
+          AuthMode.activation => 'Aktivasyonu Tamamla',
+          AuthMode.forgotPassword => 'Kod Oluştur',
+          AuthMode.resetPassword => 'Şifreyi Yenile',
+        };
+
+  IconData get _buttonIcon => switch (mode) {
+    AuthMode.login => Icons.arrow_forward,
+    AuthMode.register => Icons.person_add_alt_1,
+    AuthMode.activation => Icons.verified_user_outlined,
+    AuthMode.forgotPassword => Icons.key_outlined,
+    AuthMode.resetPassword => Icons.lock_reset,
+  };
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -148,25 +278,21 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               const SizedBox(height: 145),
               Text(
-                register ? 'Yeni üyelik oluştur' : 'Atölyeye hoş geldiniz',
+                _title,
                 style: const TextStyle(
                   fontSize: 30,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Kişiye özel terzilik yönetimi cebinizde.',
-                style: TextStyle(color: muted),
-              ),
+              Text(_subtitle, style: const TextStyle(color: muted)),
               const SizedBox(height: 22),
-              if (register) ...[
-                _field(_fullName, 'Ad soyad', Icons.badge_outlined),
-                _field(_email, 'E-posta', Icons.mail_outline),
-                _field(_phone, 'Telefon', Icons.phone_outlined),
-              ],
-              _field(_username, 'Kullanıcı adı', Icons.person_outline),
-              _field(_password, 'Şifre', Icons.lock_outline, password: true),
+              ..._buildFields(),
+              if (info != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(info!, style: const TextStyle(color: gold)),
+                ),
               if (error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -176,23 +302,12 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
               GoldButton(
-                label: loading
-                    ? 'Bekleyin...'
-                    : register
-                    ? 'Üyelik Oluştur'
-                    : 'Giriş Yap',
-                icon: register ? Icons.person_add_alt_1 : Icons.arrow_forward,
+                label: _buttonLabel,
+                icon: _buttonIcon,
                 onTap: loading ? null : submit,
               ),
-              TextButton(
-                onPressed: () => setState(() {
-                  register = !register;
-                  error = null;
-                }),
-                child: Text(
-                  register ? 'Zaten hesabım var' : 'Yeni hesap oluştur',
-                ),
-              ),
+              const SizedBox(height: 6),
+              ..._buildActions(),
             ],
           ),
         ),
@@ -200,32 +315,146 @@ class _AuthScreenState extends State<AuthScreen> {
     ),
   );
 
+  List<Widget> _buildFields() {
+    return switch (mode) {
+      AuthMode.login => [
+        _field(_username, 'Kullanıcı adı', Icons.person_outline),
+        _field(_password, 'Şifre', Icons.lock_outline, password: true),
+      ],
+      AuthMode.register => [
+        _field(_fullName, 'Ad soyad', Icons.badge_outlined),
+        _field(_email, 'E-posta', Icons.mail_outline),
+        _field(_phone, 'Telefon', Icons.phone_outlined),
+        _field(_username, 'Kullanıcı adı', Icons.person_outline),
+      ],
+      AuthMode.activation => [
+        _field(
+          _username,
+          'Kullanıcı adı',
+          Icons.person_outline,
+        ),
+        _field(_code, 'Aktivasyon kodu', Icons.verified_outlined),
+        _field(_password, 'Yeni şifre', Icons.lock_outline, password: true),
+        _field(
+          _confirmPassword,
+          'Yeni şifre tekrarı',
+          Icons.lock_reset,
+          password: true,
+          useConfirmObscure: true,
+        ),
+      ],
+      AuthMode.forgotPassword => [
+        _field(_email, 'E-posta', Icons.mail_outline),
+      ],
+      AuthMode.resetPassword => [
+        _field(_email, 'E-posta', Icons.mail_outline),
+        _field(_code, 'Tek kullanımlık kod', Icons.key_outlined),
+        _field(_password, 'Yeni şifre', Icons.lock_outline, password: true),
+        _field(
+          _confirmPassword,
+          'Yeni şifre tekrarı',
+          Icons.lock_reset,
+          password: true,
+          useConfirmObscure: true,
+        ),
+      ],
+    };
+  }
+
+  List<Widget> _buildActions() {
+    switch (mode) {
+      case AuthMode.login:
+        return [
+          TextButton(
+            onPressed: () => changeMode(AuthMode.register),
+            child: const Text('Yeni hesap oluştur'),
+          ),
+          TextButton(
+            onPressed: () => changeMode(AuthMode.activation),
+            child: const Text('Kodum var'),
+          ),
+          TextButton(
+            onPressed: () => changeMode(AuthMode.forgotPassword),
+            child: const Text('Şifremi unuttum'),
+          ),
+        ];
+      case AuthMode.register:
+        return [
+          TextButton(
+            onPressed: () => changeMode(AuthMode.login),
+            child: const Text('Zaten hesabım var'),
+          ),
+        ];
+      case AuthMode.activation:
+        return [
+          TextButton(
+            onPressed: () => changeMode(AuthMode.login),
+            child: const Text('Giriş ekranına dön'),
+          ),
+        ];
+      case AuthMode.forgotPassword:
+        return [
+          TextButton(
+            onPressed: () => changeMode(AuthMode.resetPassword),
+            child: const Text('Kodum var, yeni şifre oluştur'),
+          ),
+          TextButton(
+            onPressed: () => changeMode(AuthMode.login),
+            child: const Text('Giriş ekranına dön'),
+          ),
+        ];
+      case AuthMode.resetPassword:
+        return [
+          TextButton(
+            onPressed: () => changeMode(AuthMode.forgotPassword),
+            child: const Text('Tekrar kod oluştur'),
+          ),
+          TextButton(
+            onPressed: () => changeMode(AuthMode.login),
+            child: const Text('Giriş ekranına dön'),
+          ),
+        ];
+    }
+  }
+
   Widget _field(
     TextEditingController controller,
     String hint,
     IconData icon, {
     bool password = false,
-  }) => Padding(
-    padding: const EdgeInsets.only(bottom: 11),
-    child: TextField(
-      controller: controller,
-      obscureText: password && obscure,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, color: gold),
-        suffixIcon: password
-            ? IconButton(
-                onPressed: () => setState(() => obscure = !obscure),
-                icon: Icon(
-                  obscure
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
-              )
-            : null,
+    bool readOnly = false,
+    bool useConfirmObscure = false,
+  }) {
+    final hidden = useConfirmObscure ? obscureConfirm : obscure;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 11),
+      child: TextField(
+        controller: controller,
+        readOnly: readOnly,
+        obscureText: password && hidden,
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: Icon(icon, color: gold),
+          suffixIcon: password
+              ? IconButton(
+                  onPressed: () => setState(() {
+                    if (useConfirmObscure) {
+                      obscureConfirm = !obscureConfirm;
+                    } else {
+                      obscure = !obscure;
+                    }
+                  }),
+                  icon: Icon(
+                    hidden
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                )
+              : null,
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class Shell extends StatefulWidget {
@@ -237,71 +466,246 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int index = 0;
-  final pages = const [
-    DashboardPage(),
-    OrdersPage(),
-    CustomersPage(),
-    AppointmentsPage(),
-  ];
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      backgroundColor: ink,
-      title: SvgPicture.asset(
-        'assets/images/terzituran-wordmark.svg',
-        height: 42,
+  Widget build(BuildContext context) {
+    final isAdmin = ApiService.instance.user?.role == 'Admin';
+    final pages = <Widget>[
+      const DashboardPage(),
+      const OrdersPage(),
+      const CustomersPage(),
+      const AppointmentsPage(),
+      if (isAdmin) const CodeRequestsPage(),
+    ];
+    final destinations = <NavigationDestination>[
+      const NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home),
+        label: 'Ana Sayfa',
       ),
-      actions: [
-        IconButton(
-          onPressed: () => showModalBottomSheet(
-            context: context,
-            backgroundColor: panel,
-            builder: (_) => ProfileSheet(onLogout: widget.onLogout),
+      const NavigationDestination(
+        icon: Icon(Icons.receipt_long_outlined),
+        selectedIcon: Icon(Icons.receipt_long),
+        label: 'Siparişler',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.people_outline),
+        selectedIcon: Icon(Icons.people),
+        label: 'Müşteriler',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.calendar_month_outlined),
+        selectedIcon: Icon(Icons.calendar_month),
+        label: 'Randevular',
+      ),
+      if (isAdmin)
+        const NavigationDestination(
+          icon: Icon(Icons.key_outlined),
+          selectedIcon: Icon(Icons.key),
+          label: 'Kodlar',
+        ),
+    ];
+
+    if (index >= pages.length) {
+      index = 0;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: ink,
+        title: SvgPicture.asset(
+          'assets/images/terzituran-wordmark.svg',
+          height: 42,
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              backgroundColor: panel,
+              builder: (_) => ProfileSheet(onLogout: widget.onLogout),
+            ),
+            icon: const CircleAvatar(
+              backgroundColor: Color(0x22D2A96D),
+              child: Icon(Icons.person_outline, color: gold),
+            ),
           ),
-          icon: const CircleAvatar(
-            backgroundColor: Color(0x22D2A96D),
-            child: Icon(Icons.person_outline, color: gold),
+        ],
+      ),
+      body: IndexedStack(index: index, children: pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: index,
+        onDestinationSelected: (value) => setState(() => index = value),
+        backgroundColor: const Color(0xFF111311),
+        indicatorColor: const Color(0x22D2A96D),
+        destinations: destinations,
+      ),
+    );
+  }
+}
+
+class CustomerShell extends StatefulWidget {
+  const CustomerShell({super.key, required this.onLogout});
+  final VoidCallback onLogout;
+  @override
+  State<CustomerShell> createState() => _CustomerShellState();
+}
+
+class _CustomerShellState extends State<CustomerShell> {
+  int index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    const pages = [
+      CustomerHomePage(),
+      OrdersPage(),
+      AppointmentsPage(),
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: ink,
+        title: SvgPicture.asset(
+          'assets/images/terzituran-wordmark.svg',
+          height: 42,
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              backgroundColor: panel,
+              builder: (_) => ProfileSheet(onLogout: widget.onLogout),
+            ),
+            icon: const CircleAvatar(
+              backgroundColor: Color(0x22D2A96D),
+              child: Icon(Icons.person_outline, color: gold),
+            ),
           ),
-        ),
-      ],
-    ),
-    body: IndexedStack(index: index, children: pages),
-    bottomNavigationBar: NavigationBar(
-      selectedIndex: index,
-      onDestinationSelected: (value) => setState(() => index = value),
-      backgroundColor: const Color(0xFF111311),
-      indicatorColor: const Color(0x22D2A96D),
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'Ana Sayfa',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.receipt_long_outlined),
-          selectedIcon: Icon(Icons.receipt_long),
-          label: 'Siparişler',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.people_outline),
-          selectedIcon: Icon(Icons.people),
-          label: 'Müşteriler',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.calendar_month_outlined),
-          selectedIcon: Icon(Icons.calendar_month),
-          label: 'Randevular',
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+      body: IndexedStack(index: index, children: pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: index,
+        onDestinationSelected: (value) => setState(() => index = value),
+        backgroundColor: const Color(0xFF111311),
+        indicatorColor: const Color(0x22D2A96D),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Panelim',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Siparişlerim',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'Randevularım',
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
   @override
   State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class CustomerHomePage extends StatefulWidget {
+  const CustomerHomePage({super.key});
+  @override
+  State<CustomerHomePage> createState() => _CustomerHomePageState();
+}
+
+class _CustomerHomePageState extends State<CustomerHomePage> {
+  late Future<Map<String, dynamic>> data = load();
+
+  Future<Map<String, dynamic>> load() async {
+    final customer = await ApiService.instance.myCustomer();
+    final orders = await ApiService.instance.orders();
+    final appointments = await ApiService.instance.appointments();
+    return {
+      'customer': customer,
+      'orders': orders,
+      'appointments': appointments,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return ErrorState(snapshot.error.toString(), reload);
+      }
+      if (!snapshot.hasData) return const LoadingState();
+
+      final customer = snapshot.data!['customer'] as Map<String, dynamic>;
+      final orders = (snapshot.data!['orders'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      final appointments = (snapshot.data!['appointments'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      final activeOrders = orders.where((x) => statusName(x['status']) != 'Teslim Edildi').length;
+      final totalSpent = orders.fold<num>(
+        0,
+        (sum, item) => sum + ((item['paidAmount'] as num?) ?? 0),
+      );
+
+      return RefreshIndicator(
+        onRefresh: reload,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            HeroCard(name: customer['fullName']?.toString() ?? 'Müşteri'),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                StatCard('Aktif Siparişim', '$activeOrders', Icons.cut),
+                StatCard(
+                  'Toplam Sipariş',
+                  '${orders.length}',
+                  Icons.receipt_long_outlined,
+                ),
+                StatCard(
+                  'Yaklaşan Randevu',
+                  '${appointments.length}',
+                  Icons.calendar_today_outlined,
+                ),
+                StatCard(
+                  'Ödeme',
+                  totalSpent.toStringAsFixed(0),
+                  Icons.payments_outlined,
+                ),
+              ],
+            ),
+            PageHeader(
+              'Profil Bilgilerim',
+              'Hesabınıza bağlı müşteri kaydı',
+              onRefresh: reload,
+            ),
+            Card(
+              child: ListTile(
+                title: Text(customer['fullName']?.toString() ?? ''),
+                subtitle: Text('${customer['phone'] ?? ''}\n${customer['email'] ?? ''}'),
+                isThreeLine: true,
+              ),
+            ),
+            const SectionTitle('Son Siparişlerim', 'Size ait kayıtlar'),
+            ...orders.take(4).map((item) => OrderTile(item)),
+          ],
+        ),
+      );
+    },
+  );
+
+  Future<void> reload() async => setState(() => data = load());
 }
 
 class _DashboardPageState extends State<DashboardPage> {
@@ -349,7 +753,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ],
             ),
-            const SectionTitle('Sipariş Hareketi', 'Son 6 ay'),
+            PageHeader('Sipariş Hareketi', 'Son 6 ay', onRefresh: reload),
             Card(
               child: SizedBox(
                 height: 220,
@@ -383,6 +787,7 @@ class _OrdersPageState extends State<OrdersPage> {
   String query = '';
   String sort = 'Teslim Tarihi';
   bool ascending = true;
+  bool get isCustomer => ApiService.instance.user?.role == 'Customer';
 
   @override
   Widget build(BuildContext context) => FutureBuilder(
@@ -398,35 +803,50 @@ class _OrdersPageState extends State<OrdersPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const SectionTitle('Siparişler', 'Akıllı arama ve sıralama'),
+            PageHeader(
+              isCustomer ? 'Siparişlerim' : 'Siparişler',
+              isCustomer ? 'Size ait kayıtlar' : 'Akıllı arama ve sıralama',
+              onRefresh: reload,
+            ),
+            if (isCustomer) ...[
+              GoldButton(
+                label: 'Sipariş Oluştur',
+                icon: Icons.add_shopping_cart_outlined,
+                onTap: createCustomerOrder,
+              ),
+              const SizedBox(height: 12),
+            ],
             TextField(
               onChanged: (value) => setState(() => query = value),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 prefixIcon: Icon(Icons.search, color: gold),
-                hintText: 'Sipariş, müşteri, kategori veya durum ara',
+                hintText: isCustomer
+                    ? 'Sipariş, kategori veya durum ara'
+                    : 'Sipariş, müşteri, kategori veya durum ara',
               ),
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: sort,
-                    items: ['Müşteri', 'Hizmet', 'Durum', 'Teslim Tarihi']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                    onChanged: (value) => setState(() => sort = value!),
+            if (!isCustomer)
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: sort,
+                      items: ['Müşteri', 'Hizmet', 'Durum', 'Teslim Tarihi']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                      onChanged: (value) => setState(() => sort = value!),
+                    ),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => setState(() => ascending = !ascending),
-                  icon: Icon(
-                    ascending ? Icons.arrow_upward : Icons.arrow_downward,
-                    color: gold,
+                  IconButton(
+                    onPressed: () => setState(() => ascending = !ascending),
+                    icon: Icon(
+                      ascending ? Icons.arrow_upward : Icons.arrow_downward,
+                      color: gold,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
@@ -435,8 +855,10 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
             ),
             ...orders.map(
-              (item) =>
-                  OrderTile(item, onAssignReceipt: () => assignReceipt(item)),
+              (item) => OrderTile(
+                item,
+                onAssignReceipt: isCustomer ? null : () => assignReceipt(item),
+              ),
             ),
           ],
         ),
@@ -479,7 +901,9 @@ class _OrdersPageState extends State<OrdersPage> {
       setState(() => future = ApiService.instance.orders());
 
   Future<void> assignReceipt(Map<String, dynamic> order) async {
-    final bagCount = TextEditingController(text: '1');
+    final initialBagCount = ((order['bagCount'] as num?)?.toInt() ?? 1)
+        .clamp(1, 20);
+    final bagCount = TextEditingController(text: '$initialBagCount');
     final note = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -521,13 +945,112 @@ class _OrdersPageState extends State<OrdersPage> {
     if (confirmed != true || !mounted) return;
     try {
       await ApiService.instance.assignReceipt(
-        order['id'] as int,
+        (order['id'] as num?)?.toInt() ?? 0,
         int.tryParse(bagCount.text) ?? 1,
         note.text.trim(),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Teslim fişi siparişe atandı.')),
+        );
+      }
+      await reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  Future<void> createCustomerOrder() async {
+    final title = TextEditingController();
+    final category = TextEditingController();
+    final description = TextEditingController();
+    final bagCount = TextEditingController(text: '1');
+    var serviceType = 1;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          backgroundColor: panel,
+          title: const Text('Yeni Sipariş Oluştur'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: title,
+                  decoration: const InputDecoration(labelText: 'Sipariş başlığı'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: category,
+                  decoration: const InputDecoration(labelText: 'Kategori'),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<int>(
+                  initialValue: serviceType,
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Dikim')),
+                    DropdownMenuItem(value: 2, child: Text('Tamir')),
+                  ],
+                  onChanged: (value) =>
+                      setModalState(() => serviceType = value ?? 1),
+                  decoration: const InputDecoration(labelText: 'Hizmet türü'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: bagCount,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Poşet adedi'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: description,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Açıklama'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Gönder'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final normalizedTitle = title.text.trim();
+    final normalizedCategory = category.text.trim();
+    if (normalizedTitle.isEmpty || normalizedCategory.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Başlık ve kategori zorunludur.')),
+      );
+      return;
+    }
+
+    try {
+      await ApiService.instance.createOrder(
+        title: normalizedTitle,
+        category: normalizedCategory,
+        description: description.text.trim(),
+        serviceType: serviceType,
+        bagCount: int.tryParse(bagCount.text) ?? 1,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sipariş talebiniz oluşturuldu.')),
         );
       }
       await reload();
@@ -570,7 +1093,7 @@ class _CustomersPageState extends State<CustomersPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const SectionTitle('Müşteriler', 'Müşteri portföyü'),
+            PageHeader('Müşteriler', 'Müşteri portföyü', onRefresh: reload),
             TextField(
               onChanged: (value) => setState(() => query = value),
               decoration: const InputDecoration(
@@ -629,14 +1152,32 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const SectionTitle('Randevular', 'Atölye takvimi'),
+            PageHeader(
+              ApiService.instance.user?.role == 'Customer'
+                  ? 'Randevularım'
+                  : 'Randevular',
+              ApiService.instance.user?.role == 'Customer'
+                  ? 'Size ait takvim kayıtları'
+                  : 'Atölye takvimi',
+              onRefresh: reload,
+            ),
+            if (items.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Text(
+                    'Gösterilecek randevu bulunmuyor.',
+                    style: TextStyle(color: muted),
+                  ),
+                ),
+              ),
             ...items.map(
               (a) => Card(
                 child: ListTile(
                   leading: DateBadge(a['appointmentDate']),
                   title: Text(a['title']?.toString() ?? ''),
                   subtitle: Text(
-                    '${a['customer']?['fullName'] ?? ''}\n${appointmentStatus(a['status'])}',
+                    '${a['customer']?['fullName'] ?? 'Müşteri bilgisi yok'}\n${appointmentStatus(a['status'])}',
                   ),
                   isThreeLine: true,
                   trailing: const Icon(Icons.chevron_right, color: gold),
@@ -650,6 +1191,133 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   );
   Future<void> reload() async =>
       setState(() => future = ApiService.instance.appointments());
+}
+
+class CodeRequestsPage extends StatefulWidget {
+  const CodeRequestsPage({super.key});
+  @override
+  State<CodeRequestsPage> createState() => _CodeRequestsPageState();
+}
+
+class _CodeRequestsPageState extends State<CodeRequestsPage> {
+  late Future<List<CodeRequestItem>> future = ApiService.instance.codeRequests();
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<CodeRequestItem>>(
+    future: future,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return ErrorState(snapshot.error.toString(), reload);
+      }
+      if (!snapshot.hasData) return const LoadingState();
+      final items = snapshot.data!;
+      return RefreshIndicator(
+        onRefresh: reload,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            PageHeader(
+              'Kod Talepleri',
+              'Kopyalanan talep listeden düşer',
+              onRefresh: reload,
+            ),
+            if (items.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Text(
+                    'Bekleyen kod talebi bulunmuyor.',
+                    style: TextStyle(color: muted),
+                  ),
+                ),
+              ),
+            ...items.map(
+              (item) => Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.fullName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${item.username} • ${item.email}',
+                                  style: const TextStyle(color: muted),
+                                ),
+                              ],
+                            ),
+                          ),
+                          StatusPill(item.requestType),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        item.code,
+                        style: const TextStyle(
+                          color: gold,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Son geçerlilik: ${formatDateTime(item.expiresAt)}',
+                        style: const TextStyle(color: muted),
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: GoldButton(
+                          label: 'Kopyala',
+                          icon: Icons.copy_outlined,
+                          onTap: () => copyAndDispatch(item),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+
+  Future<void> reload() async =>
+      setState(() => future = ApiService.instance.codeRequests());
+
+  Future<void> copyAndDispatch(CodeRequestItem item) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: item.code));
+      await ApiService.instance.dispatchCodeRequest(item.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${item.code} kopyalandı ve talep listeden düştü.')),
+        );
+      }
+      await reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
 }
 
 class HeroCard extends StatelessWidget {
@@ -756,6 +1424,11 @@ class OrderTile extends StatelessWidget {
               '${order['customer']?['fullName'] ?? ''} · ${order['category'] ?? ''}',
               style: const TextStyle(color: muted),
             ),
+            const SizedBox(height: 6),
+            Text(
+              'Poşet adedi: ${order['bagCount'] ?? 1}',
+              style: const TextStyle(color: muted),
+            ),
             const Divider(height: 22, color: Color(0x22D2A96D)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -785,13 +1458,28 @@ class OrderTile extends StatelessWidget {
                   StatusPill('Poşet ${receipt['bagNumber']}'),
                 ],
               ),
-            ] else if (onAssignReceipt != null) ...[
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: onAssignReceipt,
-                icon: const Icon(Icons.receipt_long_outlined),
-                label: const Text('Teslim Fişi Ata'),
+            ] else ...[
+              const Divider(height: 22, color: Color(0x22D2A96D)),
+              const Row(
+                children: [
+                  Icon(Icons.receipt_long_outlined, color: gold, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Fiş Atama Bekliyor',
+                      style: TextStyle(color: Color(0xFFE9C27A), fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
+              if (onAssignReceipt != null) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: onAssignReceipt,
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('Teslim Fişi Ata'),
+                ),
+              ],
             ],
           ],
         ),
@@ -865,6 +1553,40 @@ class SectionTitle extends StatelessWidget {
           ),
         ),
         Text(caption, style: const TextStyle(color: muted, fontSize: 11)),
+      ],
+    ),
+  );
+}
+
+class PageHeader extends StatelessWidget {
+  const PageHeader(this.title, this.caption, {super.key, required this.onRefresh});
+  final String title;
+  final String caption;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(2, 20, 2, 10),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 2),
+              Text(caption, style: const TextStyle(color: muted, fontSize: 11)),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: 'Yenile',
+          onPressed: onRefresh,
+          icon: const Icon(Icons.refresh, color: gold),
+        ),
       ],
     ),
   );
@@ -1056,6 +1778,10 @@ String normalize(String value) => value
 String formatDate(dynamic raw) {
   final date = DateTime.tryParse(raw?.toString() ?? '');
   return date == null ? '-' : DateFormat('dd.MM.yyyy').format(date.toLocal());
+}
+
+String formatDateTime(DateTime? date) {
+  return date == null ? '-' : DateFormat('dd.MM.yyyy HH:mm').format(date.toLocal());
 }
 
 String _initials(dynamic value) {

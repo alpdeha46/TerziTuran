@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<BagReceipt> BagReceipts => Set<BagReceipt>();
+    public DbSet<UserPasswordRequest> UserPasswordRequests => Set<UserPasswordRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +30,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany(x => x.Users)
             .HasForeignKey(x => x.CustomerId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<User>()
+            .HasMany(x => x.PasswordRequests)
+            .WithOne(x => x.User)
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Customer>()
             .HasMany(x => x.Measurements)
@@ -87,5 +94,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<BagReceipt>()
             .HasIndex(x => x.BagNumber);
+
+        modelBuilder.Entity<UserPasswordRequest>()
+            .HasIndex(x => new { x.UserId, x.RequestType, x.IsUsed, x.IsDispatched });
     }
 }

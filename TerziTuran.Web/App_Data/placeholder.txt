@@ -1,0 +1,1 @@
+This folder is required for SQLite and startup logs in production hosting environments.

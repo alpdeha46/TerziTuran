@@ -1,33 +1,93 @@
 # TerziTuran
 
-TerziTuran, terziler ve konfeksiyon atolyeleri icin gelistirilmis ASP.NET Core MVC + Web API + SQLite tabanli yonetim uygulamasidir. Bu surumde sadece web/backend tarafi olusturulmustur.
+<p align="center">
+  <img src="TerziTuran.Web/wwwroot/images/terzituran-wordmark.svg" alt="Terzi Turan" width="420" />
+</p>
 
-## Kullanilan Teknolojiler
+<p align="center">
+  Atölye operasyonu, müşteri yönetimi, sipariş takibi, randevular, ödemeler, poşet fişleri ve mobil erişimi tek yapıda birleştiren terzi yönetim platformu.
+</p>
 
-- ASP.NET Core MVC
-- ASP.NET Core Web API
-- Entity Framework Core
-- SQLite
-- Cookie Authentication
-- JWT Authentication
-- Bootstrap 5
-- Font Awesome
-- Yerel animasyonlu Canvas grafik motoru
-- QuestPDF
-- Swagger
+<p align="center">
+  <img src="docs/images/github-hero.svg" alt="TerziTuran platform özeti" width="100%" />
+</p>
 
-## Ozellikler
+## Genel Bakış
 
-- Admin ve Staff rolleri
-- Guvenli sifre hashleme
-- Musteri, olcu, siparis, siparis kalemi, odeme ve randevu CRUD islemleri
-- Yetki kontrollu kullanici yonetimi
-- Dashboard istatistikleri ve grafikler
-- Filtrelenebilir rapor ekrani
-- PDF rapor cikisi
-- Mobil uygulama entegrasyonu icin JWT korumali REST API
+TerziTuran; terzi, modaevi ve konfeksiyon atölyeleri için geliştirilmiş tam yığın bir yönetim sistemidir. Proje iki ana parçadan oluşur:
 
-## Klasor Yapisi
+- `TerziTuran.Web`: ASP.NET Core MVC arayüzü, JWT destekli API, SQLite veritabanı ve iş kuralları
+- `TerziTuran.Mobile`: Flutter ile geliştirilmiş mobil istemci
+
+Sistem; `Admin`, `Staff` ve `Customer` rollerini destekler. Yönetim tarafı atölye süreçlerini yönetirken, müşteri tarafı kendi sipariş, randevu ve hesap akışını görür.
+
+## Öne Çıkan Yetenekler
+
+- Rol bazlı erişim: `Admin`, `Staff`, `Customer`
+- Web ve mobil için ortak iş kuralları
+- JWT korumalı mobil API ve cookie tabanlı web oturumu
+- Müşteri kayıt, aktivasyon kodu ve şifre sıfırlama akışı
+- Admin için `Kod Talepleri` ekranı
+- Sipariş, ödeme, randevu ve müşteri yönetimi
+- Poşet adedi ve teslim fişi yönetimi
+- Dashboard kartları ve operasyon özeti
+- PDF rapor üretimi
+- Docker ve Nginx ile deploy altyapısı
+
+## Roller ve Deneyim
+
+<p align="center">
+  <img src="docs/images/role-matrix.svg" alt="Rol matrisi" width="100%" />
+</p>
+
+### `Admin`
+
+- Kullanıcı yönetimi yapar
+- Kod taleplerini görür ve kopyalar
+- Sipariş, ödeme, müşteri, randevu ve fiş süreçlerini yönetir
+
+### `Staff`
+
+- Atölye operasyonunu yürütür
+- Sipariş, ödeme, müşteri ve randevu ekranlarını kullanır
+- Fiş atama ve teslim süreçlerinde çalışır
+
+### `Customer`
+
+- Mobil ve web tarafında kendi ekranını görür
+- Kendi siparişlerini ve randevularını takip eder
+- Mobil üzerinden sipariş talebi oluşturabilir
+- Aktivasyon ve şifre sıfırlama akışını tek kullanımlık kodla tamamlar
+
+## Aktivasyon ve Kod Akışı
+
+<p align="center">
+  <img src="docs/images/activation-flow.svg" alt="Aktivasyon ve şifre akışı" width="100%" />
+</p>
+
+Bu yapı hem webde hem mobilde aynıdır:
+
+1. Yeni kullanıcı kaydı oluşturulur.
+2. Sistem kullanıcıyı `Customer` rolüyle hazırlar.
+3. Tek kullanımlık kod `Kod Talepleri` ekranına düşer.
+4. Admin kodu kopyaladığında talep listeden kalkar.
+5. Kullanıcı kodu girer, şifresini belirler ve hesabı aktif hale gelir.
+6. `Şifremi unuttum` akışı da aynı mantıkla çalışır.
+
+## Teknoloji Yığını
+
+| Katman | Teknolojiler |
+| --- | --- |
+| Backend | ASP.NET Core 8, MVC, Web API, Entity Framework Core |
+| Veritabanı | SQLite |
+| Kimlik Doğrulama | Cookie Auth, JWT Bearer |
+| Mobil | Flutter |
+| Arayüz | Razor Views, Bootstrap 5 |
+| Raporlama | QuestPDF |
+| Dokümantasyon | Swagger / OpenAPI |
+| Deployment | Docker Compose, Nginx |
+
+## Proje Yapısı
 
 ```text
 TerziTuran/
@@ -36,77 +96,93 @@ TerziTuran/
 │   ├── Controllers/
 │   ├── Data/
 │   ├── DTOs/
+│   ├── Extensions/
 │   ├── Middleware/
+│   ├── Migrations/
 │   ├── Models/
 │   ├── Services/
 │   ├── ViewModels/
 │   ├── Views/
 │   └── wwwroot/
+├── TerziTuran.Mobile/
+│   ├── assets/
+│   └── lib/
 ├── deployment/
-├── README.md
-└── .gitignore
+├── docs/
+│   └── images/
+└── README.md
 ```
 
-## Kurulum
+## Hızlı Başlangıç
 
-1. Proje klasorune girin:
-
-```bash
-cd TerziTuran/TerziTuran.Web
-```
-
-2. Paketleri yukleyin:
+### 1. Web uygulamasını çalıştır
 
 ```bash
+cd TerziTuran.Web
 dotnet restore
-```
-
-3. Migration olusturun veya mevcut migration'i kullanin:
-
-```bash
-DOTNET_ROLL_FORWARD=Major dotnet ef migrations add InitialCreate
-```
-
-4. Veritabanini guncelleyin:
-
-```bash
 DOTNET_ROLL_FORWARD=Major dotnet ef database update
-```
-
-5. Uygulamayi baslatin:
-
-```bash
 DOTNET_ROLL_FORWARD=Major dotnet run
 ```
 
-Not:
-Bu makinede yalnizca .NET 10 runtime bulundugu icin proje `net8.0` hedefinde olsa bile calistirma ve `dotnet-ef` komutlarinda `DOTNET_ROLL_FORWARD=Major` kullanilmistir.
+Varsayılan geliştirme adresi genelde `http://127.0.0.1:5241` olur.
 
-## Guvenli Giris ve Kayit
+### 2. Mobil uygulamayı çalıştır
 
-- Musteriler `/Auth/Register` ekranindan hesap olusturabilir ve dogrudan kendi portallarina girer.
-- Acik kayit ucu yalnizca `Customer` rolu olusturur.
-- Giris ve kayit istekleri IP bazli rate-limit ile korunur.
-- Uretimde ornek hesap veya veri eklenmez.
-- Ilk uretim yoneticisi, asagidaki ortam degiskenleriyle guvenli olarak olusturulur.
+```bash
+cd TerziTuran.Mobile
+flutter pub get
+flutter run
+```
 
-## Swagger
+Farklı bir API adresi vermek istersen:
 
-- Varsayilan gelistirme adresi: `https://localhost:xxxx/swagger`
-- Testte kullanilan ornek adres: `http://127.0.0.1:5055/swagger`
+```bash
+flutter run --dart-define=API_URL=https://api.example.com
+```
 
-## API Uclari
+### 3. Analiz ve doğrulama
 
-- `POST /api/auth/login`
-- `POST /api/auth/register`
-- `GET /api/dashboard/summary`
-- `GET|POST|PUT|DELETE /api/customers`
-- `GET|POST|PUT|DELETE /api/measurements`
-- `GET|POST|PUT|DELETE /api/orders`
-- `GET|POST|PUT|DELETE /api/payments`
-- `GET|POST|PUT|DELETE /api/appointments`
+```bash
+cd TerziTuran.Web
+dotnet build
+```
 
-Tum API cevaplari su yapi ile doner:
+```bash
+cd TerziTuran.Mobile
+flutter analyze
+```
+
+## Geliştirme Notları
+
+- Bu ortamda .NET 10 runtime bulunduğu için `net8.0` proje çalıştırılırken `DOTNET_ROLL_FORWARD=Major` kullanılmıştır.
+- Geliştirme ortamında Swagger açıktır.
+- Uygulama başlangıcında migration’lar uygulanır.
+- Siparişlerde `BagCount < 1` olan eski veriler başlangıçta `1` olarak düzeltilir.
+
+## Varsayılan İş Akışları
+
+### Sipariş ve fiş
+
+- Siparişte `Poşet Adedi` seçilir.
+- Fiş atanmamış siparişler `Fiş Atama Bekliyor` durumunda görünür.
+- Aktif fiş oluşturulunca teslim numarası ve teslim alma kodu atanır.
+
+### Müşteri kayıt akışı
+
+- Yeni kayıt olan kullanıcılar otomatik `Customer` rolüyle oluşturulur.
+- Kayıt sırasında doğrudan şifre alınmaz.
+- Aktivasyon kodu girildikten sonra kullanıcı ilk şifresini belirler.
+
+### Mobil müşteri deneyimi
+
+- `Panelim`
+- `Siparişlerim`
+- `Randevularım`
+- Sipariş oluşturma
+
+## API Özeti
+
+Tüm API cevapları aşağıdaki yapıyı döner:
 
 ```json
 {
@@ -116,15 +192,47 @@ Tum API cevaplari su yapi ile doner:
 }
 ```
 
+Başlıca uçlar:
+
+- `POST /api/auth/login`
+- `POST /api/auth/register`
+- `POST /api/auth/activate`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `GET /api/dashboard/summary`
+- `GET|POST|PUT|DELETE /api/orders`
+- `GET|POST|PUT|DELETE /api/customers`
+- `GET|POST|PUT|DELETE /api/appointments`
+- `GET|POST|PUT|DELETE /api/payments`
+- `GET /api/code-requests`
+- `POST /api/code-requests/{id}/dispatch`
+- `POST /api/bag-receipts`
+
+## Konfigürasyon
+
+### Gerekli ayarlar
+
+- `ConnectionStrings:DefaultConnection`
+- `Jwt:Key`
+- `Jwt:Issuer`
+- `Jwt:Audience`
+- `Cors:AllowedOrigins`
+
+`Jwt:Key` en az 32 karakter olmalıdır.
+
+### İlk admin hesabı
+
+Üretim ortamında ilk yönetici aşağıdaki environment variable’larla oluşturulabilir:
+
+- `TERZITURAN_ADMIN_USERNAME`
+- `TERZITURAN_ADMIN_PASSWORD`
+- `TERZITURAN_ADMIN_FULLNAME`
+- `TERZITURAN_ADMIN_EMAIL`
+- `TERZITURAN_JWT_KEY`
+
 ## Deployment
 
-### ASP.NET Core publish
-
-```bash
-dotnet publish -c Release -o ./publish
-```
-
-### Docker ile calistirma
+### Docker Compose
 
 ```bash
 cd deployment
@@ -133,73 +241,40 @@ export TERZITURAN_ADMIN_PASSWORD="GucluYoneticiSifresi1!"
 docker compose up -d --build
 ```
 
-Istege bagli ilk yonetici degiskenleri:
+### Nginx
 
-- `TERZITURAN_ADMIN_USERNAME`
-- `TERZITURAN_ADMIN_FULLNAME`
-- `TERZITURAN_ADMIN_EMAIL`
+`deployment/nginx.conf` dosyası örnek reverse proxy yapılandırmasını içerir.
 
-### Nginx reverse proxy
+### SQLite
 
-- `deployment/nginx.conf` dosyasi `terzituran.com` ve `terzituran.com.tr` alan adlari icin hazirlanmistir.
-- Nginx, istekleri container icindeki ASP.NET Core uygulamasina yonlendirir.
+Üretimde SQLite dosyasını kalıcı volume veya host klasöründe tutman önerilir.
 
-### Domain baglama
+## Demo Senaryosu
 
-- DNS tarafinda `A` veya `CNAME` kayitlarini sunucunuza yonlendirin.
-- `terzituran.com`, `www.terzituran.com`, `terzituran.com.tr`, `www.terzituran.com.tr` icin kayit ekleyin.
+Projeyi tanıtırken şu kısa akış iyi çalışır:
 
-### Let's Encrypt SSL
+1. Admin girişi yap
+2. Dashboard ve sipariş listesini göster
+3. Yeni müşteri kaydı oluştur
+4. `Kod Talepleri` ekranından kodu kopyala
+5. Müşteri aktivasyonunu mobilde tamamla
+6. Müşteri hesabıyla sipariş oluştur
+7. Admin hesabıyla fiş ata ve randevu takibini göster
 
-- Sunucuda `certbot` kurun.
-- Ornek:
+## Depo Notları
 
-```bash
-sudo certbot certonly --nginx -d terzituran.com -d www.terzituran.com -d terzituran.com.tr -d www.terzituran.com.tr
-```
+- Veritabanı dosyasını değil migration’ları versiyonla
+- Güçlü JWT anahtarını repoya yazma
+- Commit öncesi `dotnet build` ve `flutter analyze` çalıştır
 
-- Sertifika dizini `docker-compose.yml` icinde `/etc/letsencrypt` olarak mount edilmistir.
+## Görseller
 
-### SQLite veritabaninin uretimde tutulmasi
+README içinde kullanılan görseller:
 
-- Uretimde SQLite dosyasini container ici gecici alanda degil, kalici volume veya host klasorunde tutun.
-- Bu proje icin varsayilan uretim yolu: `/app/data/terzituran.db`
+- [Platform özeti](docs/images/github-hero.svg)
+- [Rol matrisi](docs/images/role-matrix.svg)
+- [Aktivasyon akışı](docs/images/activation-flow.svg)
 
-### Gelecekte Flutter uygulamasi icin API taban adresi
+## Lisans
 
-- Ornek production API base URL:
-  - `https://terzituran.com/api`
-  - veya `https://terzituran.com.tr/api`
-
-## GitHub Kullanim Notlari
-
-- JWT anahtarini `TERZITURAN_JWT_KEY` ortam degiskeniyle saglayin; repoya yazmayin.
-- SQLite veritabanini depoya eklemek yerine migration dosyalarini versiyonlayin.
-- Commit oncesinde `dotnet build` ve `dotnet ef database update` ile kontrol yapin.
-
-## Juri Sunum Notlari
-
-- Giris ve rol tabanli yetkilendirmeyi gosterin.
-- Dashboard kartlari, grafikler ve rapor PDF cikisini canli gosterin.
-- Swagger uzerinden JWT login alip korumali endpointleri test edin.
-- Musteri detay sayfasinda iliskili olcu, siparis, odeme ve randevu verilerini tek ekranda anlatin.
-# Terzi Turan
-
-## Flutter Mobil Uygulama
-
-Mobil uygulama `TerziTuran.Mobile` klasöründedir. Android emülatörde varsayılan API adresi
-`http://10.0.2.2:5241`, Windows/macOS çalıştırmalarında `http://127.0.0.1:5241` olarak seçilir.
-
-```powershell
-cd TerziTuran.Mobile
-flutter pub get
-flutter run
-```
-
-Farklı bir sunucu adresi kullanmak için:
-
-```powershell
-flutter run --dart-define=API_URL=https://api.example.com
-```
-
-Üretim paketlerinde mutlaka HTTPS API adresi kullanılmalıdır.
+Bu depo için henüz ayrı bir lisans dosyası tanımlanmadı. Açık kaynak yayın planlıyorsan `LICENSE` dosyası eklemen iyi olur.

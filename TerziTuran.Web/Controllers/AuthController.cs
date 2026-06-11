@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using TerziTuran.Web.Data;
 using TerziTuran.Web.DTOs;
 using TerziTuran.Web.Models;
 using TerziTuran.Web.Services;
@@ -12,7 +14,7 @@ using TerziTuran.Web.ViewModels;
 namespace TerziTuran.Web.Controllers;
 
 [AllowAnonymous]
-public class AuthController(IAuthService authService) : Controller
+public class AuthController(IAuthService authService, AppDbContext context) : Controller
 {
     [HttpGet]
     public IActionResult Login(string? returnUrl = null) => View(new LoginViewModel { ReturnUrl = returnUrl });
@@ -29,6 +31,19 @@ public class AuthController(IAuthService authService) : Controller
         {
             ModelState.AddModelError(string.Empty, "Kullanici adi veya sifre hatali.");
             return View(model);
+        }
+
+        if (user.MustChangePassword)
+        {
+            var activationResult = await authService.CreateActivationRequestAsync(user);
+            if (!activationResult.Success)
+            {
+                ModelState.AddModelError(string.Empty, activationResult.Message);
+                return View(model);
+            }
+
+            TempData["Success"] = "Tek kullanimlik aktivasyon kodu olusturuldu. Kodu yoneticiden alip yeni sifrenizi belirleyin.";
+            return RedirectToAction(nameof(CompleteActivation), new { userId = user.Id, username = user.Username });
         }
 
         await SignInAsync(user);
@@ -58,7 +73,6 @@ public class AuthController(IAuthService authService) : Controller
             FullName = model.FullName,
             Username = model.Username,
             Email = model.Email,
-            Password = model.Password,
             Phone = model.Phone
         });
 
@@ -68,9 +82,8 @@ public class AuthController(IAuthService authService) : Controller
             return View(model);
         }
 
-        await SignInAsync(result.User);
-        TempData["Success"] = "Hesabiniz guvenle olusturuldu. Hos geldiniz.";
-        return RedirectToAction("Index", "CustomerPortal");
+        TempData["Success"] = "Kaydiniz alindi. Kod ekranina gecip aktivasyon kodunu girdiginizde hesabiniza dogrudan giris yapacaksiniz.";
+        return RedirectToAction(nameof(CompleteActivation), new { userId = result.User.Id, username = result.User.Username });
     }
 
     [HttpGet]
@@ -78,10 +91,80 @@ public class AuthController(IAuthService authService) : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult ForgotPassword(ForgotPasswordViewModel model)
+    [EnableRateLimiting("register")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
-        TempData["Success"] = "Bu e-posta sistemde kayitliysa sifre yenileme talebi guvenli sekilde isleme alinmistir.";
+        var result = await authService.StartForgotPasswordAsync(model.Email);
+        TempData["Success"] = result.Message;
+        return RedirectToAction(nameof(ResetPassword), new { email = model.Email });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CompleteActivation(int? userId = null, string? username = null)
+    {
+        if (userId.HasValue)
+        {
+            var user = await context.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId.Value && x.IsActive);
+            if (user is null)
+            {
+                TempData["Error"] = "Aktivasyon bekleyen kullanici bulunamadi.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            return View(new CompleteActivationViewModel
+            {
+                UserId = user.Id,
+                Username = user.Username
+            });
+        }
+
+        return View(new CompleteActivationViewModel
+        {
+            UserId = userId,
+            Username = username ?? string.Empty
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("login")]
+    public async Task<IActionResult> CompleteActivation(CompleteActivationViewModel model)
+    {
+        if (!ModelState.IsValid) return View(model);
+
+        var result = model.UserId.HasValue && model.UserId.Value > 0
+            ? await authService.CompleteActivationAsync(model.UserId.Value, model.Code, model.NewPassword)
+            : await authService.CompleteActivationAsync(model.Username, model.Code, model.NewPassword);
+        if (!result.Success || result.User is null)
+        {
+            ModelState.AddModelError(string.Empty, result.Message);
+            return View(model);
+        }
+
+        await SignInAsync(result.User);
+        TempData["Success"] = "Aktivasyon tamamlandi. Yeni sifrenizle giris yapildi.";
+        return RedirectToAction(result.User.Role == UserRole.Customer ? "Index" : "Index", result.User.Role == UserRole.Customer ? "CustomerPortal" : "Dashboard");
+    }
+
+    [HttpGet]
+    public IActionResult ResetPassword(string? email = null) => View(new ResetPasswordWithCodeViewModel { Email = email ?? string.Empty });
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("login")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordWithCodeViewModel model)
+    {
+        if (!ModelState.IsValid) return View(model);
+
+        var result = await authService.CompleteForgotPasswordAsync(model.Email, model.Code, model.NewPassword);
+        if (!result.Success)
+        {
+            ModelState.AddModelError(string.Empty, result.Message);
+            return View(model);
+        }
+
+        TempData["Success"] = result.Message;
         return RedirectToAction(nameof(Login));
     }
 
