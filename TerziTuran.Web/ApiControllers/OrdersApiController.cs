@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,13 +7,14 @@ using Microsoft.EntityFrameworkCore;
 using TerziTuran.Web.Data;
 using TerziTuran.Web.DTOs;
 using TerziTuran.Web.Models;
+using TerziTuran.Web.Services;
 
 namespace TerziTuran.Web.ApiControllers;
 
 [ApiController]
 [Route("api/orders")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-public class OrdersApiController(AppDbContext context) : ControllerBase
+public class OrdersApiController(AppDbContext context, INotificationService notificationService, IWebHostEnvironment environment) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll()
@@ -92,6 +94,7 @@ public class OrdersApiController(AppDbContext context) : ControllerBase
             CustomerId = customerId,
             Title = dto.Title,
             Description = dto.Description,
+            PhotoPath = SavePhoto(dto.PhotoBase64, dto.PhotoFileName),
             Category = dto.Category,
             ServiceType = dto.ServiceType,
             Status = status,
@@ -107,6 +110,23 @@ public class OrdersApiController(AppDbContext context) : ControllerBase
 
         context.Orders.Add(item);
         await context.SaveChangesAsync();
+
+        if (isCustomerRequest)
+        {
+            var customerName = await context.Customers
+                .Where(x => x.Id == customerId)
+                .Select(x => x.FullName)
+                .FirstOrDefaultAsync()
+                ?? "Musteri";
+
+            await notificationService.CreateForRolesAsync(
+                [UserRole.Admin, UserRole.Staff],
+                "Yeni siparis talebi",
+                $"{customerName} tarafindan \"{item.Title}\" baslikli yeni siparis olusturuldu.",
+                "order_created",
+                item.Id);
+        }
+
         return CreatedAtAction(nameof(Get), new { id = item.Id }, ApiResponse<object>.Ok(item, "Siparis olusturuldu."));
     }
 
@@ -121,8 +141,29 @@ public class OrdersApiController(AppDbContext context) : ControllerBase
         if (!ModelState.IsValid) return BadRequest(ApiResponse<object>.Fail("Gecersiz veri.", ModelState));
         var item = await context.Orders.FindAsync(id);
         if (item is null) return NotFound(ApiResponse<object>.Fail("Siparis bulunamadi."));
+        var previousStatus = item.Status;
         item.CustomerId = dto.CustomerId; item.Title = dto.Title; item.Description = dto.Description; item.Category = dto.Category; item.ServiceType = dto.ServiceType; item.Status = dto.Status; item.Priority = dto.Priority; item.Price = dto.Price; item.PaidAmount = dto.PaidAmount; item.DeliveryDate = dto.DeliveryDate; item.BagCount = dto.BagCount;
+        if (!string.IsNullOrWhiteSpace(dto.PhotoBase64))
+        {
+            DeletePhotoIfExists(item.PhotoPath);
+            item.PhotoPath = SavePhoto(dto.PhotoBase64, dto.PhotoFileName);
+        }
         await context.SaveChangesAsync();
+
+        if (previousStatus != item.Status)
+        {
+            var notification = BuildCustomerStatusNotification(item);
+            if (notification is not null)
+            {
+                await notificationService.CreateForCustomerAsync(
+                    item.CustomerId,
+                    notification.Value.Title,
+                    notification.Value.Message,
+                    notification.Value.Type,
+                    item.Id);
+            }
+        }
+
         return Ok(ApiResponse<object>.Ok(item, "Siparis guncellendi."));
     }
 
@@ -136,6 +177,7 @@ public class OrdersApiController(AppDbContext context) : ControllerBase
 
         var item = await context.Orders.FindAsync(id);
         if (item is null) return NotFound(ApiResponse<object>.Fail("Siparis bulunamadi."));
+        DeletePhotoIfExists(item.PhotoPath);
         context.Orders.Remove(item); await context.SaveChangesAsync();
         return Ok(ApiResponse<object>.Ok(null, "Siparis silindi."));
     }
@@ -144,5 +186,101 @@ public class OrdersApiController(AppDbContext context) : ControllerBase
     {
         var userId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
         return userId <= 0 ? null : await context.Users.FirstOrDefaultAsync(x => x.Id == userId);
+    }
+
+    private static (string Title, string Message, string Type)? BuildCustomerStatusNotification(Order order)
+        => order.Status switch
+        {
+            OrderStatus.Pending => (
+                "Siparisiniz alindi",
+                $"\"{order.Title}\" siparisiniz beklemeye alindi.",
+                "order_pending"),
+            OrderStatus.Measured => (
+                "Siparisiniz olcu asamasinda",
+                $"\"{order.Title}\" siparisinizin olculeri alindi.",
+                "order_measured"),
+            OrderStatus.Sewing => (
+                "Siparisiniz dikimde",
+                $"\"{order.Title}\" siparisiniz uretim asamasina gecti.",
+                "order_sewing"),
+            OrderStatus.Fitting => (
+                "Siparisiniz prova asamasinda",
+                $"\"{order.Title}\" siparisiniz prova surecine girdi.",
+                "order_fitting"),
+            OrderStatus.Ready => (
+                "Siparisiniz hazir",
+                $"\"{order.Title}\" siparisiniz tamamlandi ve teslime hazir.",
+                "order_ready"),
+            OrderStatus.Delivered => (
+                "Siparisiniz teslim edildi",
+                $"\"{order.Title}\" siparisiniz teslim edildi olarak isaretlendi.",
+                "order_delivered"),
+            OrderStatus.Cancelled => (
+                "Siparisiniz iptal edildi",
+                $"\"{order.Title}\" siparisiniz iptal edildi.",
+                "order_cancelled"),
+            _ => null
+        };
+
+    private string? SavePhoto(string? photoBase64, string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(photoBase64))
+        {
+            return null;
+        }
+
+        try
+        {
+            var uploadsPath = Path.Combine(environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot"), "uploads", "orders");
+            Directory.CreateDirectory(uploadsPath);
+
+            var normalized = photoBase64;
+            var extension = ".jpg";
+            var match = Regex.Match(photoBase64, @"^data:image/(?<ext>[a-zA-Z0-9+]+);base64,(?<data>.+)$");
+            if (match.Success)
+            {
+                var ext = match.Groups["ext"].Value.ToLowerInvariant();
+                extension = ext switch
+                {
+                    "png" => ".png",
+                    "webp" => ".webp",
+                    _ => ".jpg"
+                };
+                normalized = match.Groups["data"].Value;
+            }
+            else if (!string.IsNullOrWhiteSpace(fileName))
+            {
+                var candidate = Path.GetExtension(fileName);
+                if (!string.IsNullOrWhiteSpace(candidate))
+                {
+                    extension = candidate.ToLowerInvariant();
+                }
+            }
+
+            var bytes = Convert.FromBase64String(normalized);
+            var safeFileName = $"order_{DateTime.UtcNow:yyyyMMddHHmmssfff}_{Guid.NewGuid():N}{extension}";
+            var fullPath = Path.Combine(uploadsPath, safeFileName);
+            System.IO.File.WriteAllBytes(fullPath, bytes);
+            return $"/uploads/orders/{safeFileName}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void DeletePhotoIfExists(string? photoPath)
+    {
+        if (string.IsNullOrWhiteSpace(photoPath))
+        {
+            return;
+        }
+
+        var relative = photoPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+        var fullPath = Path.Combine(environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot"), relative);
+        if (System.IO.File.Exists(fullPath))
+        {
+            System.IO.File.Delete(fullPath);
+        }
     }
 }

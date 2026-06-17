@@ -15,7 +15,50 @@ namespace TerziTuran.Web.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.17");
+
+            modelBuilder.Entity("TerziTuran.Web.Models.AppNotification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("OrderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsRead", "CreatedAt");
+
+                    b.ToTable("AppNotifications");
+                });
 
             modelBuilder.Entity("TerziTuran.Web.Models.Appointment", b =>
                 {
@@ -227,6 +270,10 @@ namespace TerziTuran.Web.Migrations
                     b.Property<decimal>("PaidAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("PhotoPath")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
@@ -411,6 +458,59 @@ namespace TerziTuran.Web.Migrations
                     b.ToTable("UserPasswordRequests");
                 });
 
+            modelBuilder.Entity("TerziTuran.Web.Models.UserPushToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "IsActive", "LastSeenAt");
+
+                    b.ToTable("UserPushTokens");
+                });
+
+            modelBuilder.Entity("TerziTuran.Web.Models.AppNotification", b =>
+                {
+                    b.HasOne("TerziTuran.Web.Models.User", "User")
+                        .WithMany("Notifications")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TerziTuran.Web.Models.Appointment", b =>
                 {
                     b.HasOne("TerziTuran.Web.Models.Customer", "Customer")
@@ -513,6 +613,17 @@ namespace TerziTuran.Web.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TerziTuran.Web.Models.UserPushToken", b =>
+                {
+                    b.HasOne("TerziTuran.Web.Models.User", "User")
+                        .WithMany("PushTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TerziTuran.Web.Models.Customer", b =>
                 {
                     b.Navigation("Appointments");
@@ -537,9 +648,13 @@ namespace TerziTuran.Web.Migrations
 
             modelBuilder.Entity("TerziTuran.Web.Models.User", b =>
                 {
+                    b.Navigation("Notifications");
+
                     b.Navigation("Orders");
 
                     b.Navigation("PasswordRequests");
+
+                    b.Navigation("PushTokens");
                 });
 #pragma warning restore 612, 618
         }

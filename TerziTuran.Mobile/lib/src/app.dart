@@ -1,16 +1,129 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'api_service.dart';
+import 'notification_service.dart';
 
 const gold = Color(0xFFD2A96D);
 const ink = Color(0xFF0B0D0C);
 const panel = Color(0xFF151715);
 const muted = Color(0xFF9B9992);
+final appScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+class NotificationCenter {
+  NotificationCenter._();
+
+  static final instance = NotificationCenter._();
+
+  final ValueNotifier<List<AppNotificationItem>> items =
+      ValueNotifier<List<AppNotificationItem>>([]);
+  Timer? _timer;
+  bool _loadedOnce = false;
+  final Set<int> _announcedIds = <int>{};
+
+  Future<void> start() async {
+    stop(clear: false);
+    await refresh();
+    _timer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => refresh(announceNew: true),
+    );
+  }
+
+  void stop({bool clear = true}) {
+    _timer?.cancel();
+    _timer = null;
+    _loadedOnce = false;
+    _announcedIds.clear();
+    if (clear) {
+      items.value = [];
+    }
+  }
+
+  Future<void> refresh({bool announceNew = false}) async {
+    if (!ApiService.instance.isAuthenticated) return;
+
+    try {
+      final notifications = await ApiService.instance.notifications();
+      final previousIds = items.value.map((x) => x.id).toSet();
+      items.value = notifications;
+
+      final freshUnread = notifications
+          .where(
+            (x) =>
+                !x.isRead &&
+                !previousIds.contains(x.id) &&
+                !_announcedIds.contains(x.id),
+          )
+          .toList();
+
+      if (_loadedOnce && announceNew && freshUnread.isNotEmpty) {
+        final latest = freshUnread.first;
+        _announcedIds.addAll(freshUnread.map((x) => x.id));
+        appScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text('${latest.title}\n${latest.message}'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        _announcedIds.addAll(notifications.where((x) => !x.isRead).map((x) => x.id));
+      }
+
+      _loadedOnce = true;
+    } catch (_) {}
+  }
+
+  Future<void> markRead(AppNotificationItem item) async {
+    if (!item.isRead) {
+      await ApiService.instance.markNotificationRead(item.id);
+    }
+
+    items.value = [
+      for (final current in items.value)
+        if (current.id == item.id)
+          AppNotificationItem(
+            id: current.id,
+            userId: current.userId,
+            title: current.title,
+            message: current.message,
+            type: current.type,
+            orderId: current.orderId,
+            isRead: true,
+            createdAt: current.createdAt,
+            readAt: DateTime.now(),
+          )
+        else
+          current,
+    ];
+  }
+
+  Future<void> markAllRead() async {
+    await ApiService.instance.markAllNotificationsRead();
+    items.value = [
+      for (final current in items.value)
+        AppNotificationItem(
+          id: current.id,
+          userId: current.userId,
+          title: current.title,
+          message: current.message,
+          type: current.type,
+          orderId: current.orderId,
+          isRead: true,
+          createdAt: current.createdAt,
+          readAt: current.readAt ?? DateTime.now(),
+        ),
+    ];
+  }
+}
 
 class TerziTuranApp extends StatefulWidget {
   const TerziTuranApp({super.key});
@@ -24,9 +137,33 @@ class _TerziTuranAppState extends State<TerziTuranApp> {
   @override
   void initState() {
     super.initState();
+    PushNotificationService.onNotificationEvent = () {
+      NotificationCenter.instance.refresh(announceNew: false);
+    };
     ApiService.instance.restoreSession().then((value) {
+      if (value) {
+        NotificationCenter.instance.start();
+        PushNotificationService.instance.onAuthenticated();
+      }
       if (mounted) setState(() => _authenticated = value);
     });
+  }
+
+  @override
+  void dispose() {
+    PushNotificationService.onNotificationEvent = null;
+    NotificationCenter.instance.stop();
+    super.dispose();
+  }
+
+  void _setAuthenticated(bool value) {
+    if (value) {
+      NotificationCenter.instance.start();
+      PushNotificationService.instance.onAuthenticated();
+    } else {
+      NotificationCenter.instance.stop();
+    }
+    setState(() => _authenticated = value);
   }
 
   @override
@@ -34,6 +171,7 @@ class _TerziTuranAppState extends State<TerziTuranApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Terzi Turan',
+      scaffoldMessengerKey: appScaffoldMessengerKey,
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: ink,
@@ -65,11 +203,11 @@ class _TerziTuranAppState extends State<TerziTuranApp> {
           : _authenticated!
           ? (ApiService.instance.user?.role == 'Customer'
                 ? CustomerShell(
-                    onLogout: () => setState(() => _authenticated = false),
+                    onLogout: () => _setAuthenticated(false),
                   )
-                : Shell(onLogout: () => setState(() => _authenticated = false)))
+                : Shell(onLogout: () => _setAuthenticated(false)))
           : AuthScreen(
-              onAuthenticated: () => setState(() => _authenticated = true),
+              onAuthenticated: () => _setAuthenticated(true),
             ),
     );
   }
@@ -518,6 +656,7 @@ class _ShellState extends State<Shell> {
           height: 42,
         ),
         actions: [
+          const NotificationBellButton(),
           IconButton(
             onPressed: () => showModalBottomSheet(
               context: context,
@@ -559,6 +698,7 @@ class _CustomerShellState extends State<CustomerShell> {
       CustomerHomePage(),
       OrdersPage(),
       AppointmentsPage(),
+      PaymentsPage(),
     ];
 
     return Scaffold(
@@ -569,6 +709,7 @@ class _CustomerShellState extends State<CustomerShell> {
           height: 42,
         ),
         actions: [
+          const NotificationBellButton(),
           IconButton(
             onPressed: () => showModalBottomSheet(
               context: context,
@@ -603,6 +744,11 @@ class _CustomerShellState extends State<CustomerShell> {
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
             label: 'Randevularım',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.payments_outlined),
+            selectedIcon: Icon(Icons.payments),
+            label: 'Ödemelerim',
           ),
         ],
       ),
@@ -788,6 +934,7 @@ class _OrdersPageState extends State<OrdersPage> {
   String sort = 'Teslim Tarihi';
   bool ascending = true;
   bool get isCustomer => ApiService.instance.user?.role == 'Customer';
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   Widget build(BuildContext context) => FutureBuilder(
@@ -858,6 +1005,10 @@ class _OrdersPageState extends State<OrdersPage> {
               (item) => OrderTile(
                 item,
                 onAssignReceipt: isCustomer ? null : () => assignReceipt(item),
+                onDelete:
+                    !isCustomer && _isCompletedOrder(item)
+                    ? () => deleteOrder(item)
+                    : null,
               ),
             ),
           ],
@@ -970,6 +1121,7 @@ class _OrdersPageState extends State<OrdersPage> {
     final description = TextEditingController();
     final bagCount = TextEditingController(text: '1');
     var serviceType = 1;
+    File? selectedPhoto;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -1012,6 +1164,32 @@ class _OrdersPageState extends State<OrdersPage> {
                   maxLines: 3,
                   decoration: const InputDecoration(labelText: 'Açıklama'),
                 ),
+                const SizedBox(height: 10),
+                if (selectedPhoto != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.file(
+                      selectedPhoto!,
+                      height: 140,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final file = await _pickOrderPhoto();
+                    if (file == null) return;
+                    setModalState(() => selectedPhoto = file);
+                  },
+                  icon: const Icon(Icons.add_a_photo_outlined),
+                  label: Text(
+                    selectedPhoto == null
+                        ? 'Foto Ekle'
+                        : 'Fotoğrafı Değiştir',
+                  ),
+                ),
               ],
             ),
           ),
@@ -1045,6 +1223,7 @@ class _OrdersPageState extends State<OrdersPage> {
         title: normalizedTitle,
         category: normalizedCategory,
         description: description.text.trim(),
+        photoFile: selectedPhoto,
         serviceType: serviceType,
         bagCount: int.tryParse(bagCount.text) ?? 1,
       );
@@ -1061,6 +1240,63 @@ class _OrdersPageState extends State<OrdersPage> {
         ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
+  }
+
+  Future<File?> _pickOrderPhoto() async {
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 82,
+      maxWidth: 1800,
+    );
+    return image == null ? null : File(image.path);
+  }
+
+  Future<void> deleteOrder(Map<String, dynamic> order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: panel,
+        title: const Text('Siparişi Sil'),
+        content: Text(
+          '"${order['title']?.toString() ?? 'Sipariş'}" kaydını silmek istiyor musunuz?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ApiService.instance.deleteOrder(
+        (order['id'] as num?)?.toInt() ?? 0,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sipariş silindi.')),
+        );
+      }
+      await reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  bool _isCompletedOrder(Map<String, dynamic> order) {
+    final status = statusName(order['status']);
+    return status == 'Teslim Edildi' || status == 'İptal';
   }
 }
 
@@ -1105,6 +1341,14 @@ class _CustomersPageState extends State<CustomersPage> {
             ...customers.map(
               (c) => Card(
                 child: ListTile(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CustomerDetailPage(
+                        customerId: (c['id'] as num?)?.toInt() ?? 0,
+                      ),
+                    ),
+                  ),
                   leading: CircleAvatar(
                     backgroundColor: const Color(0x22D2A96D),
                     child: Text(_initials(c['fullName'])),
@@ -1133,6 +1377,7 @@ class AppointmentsPage extends StatefulWidget {
 
 class _AppointmentsPageState extends State<AppointmentsPage> {
   late Future<List<dynamic>> future = ApiService.instance.appointments();
+  bool get isCustomer => ApiService.instance.user?.role == 'Customer';
   @override
   Widget build(BuildContext context) => FutureBuilder(
     future: future,
@@ -1153,14 +1398,18 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           padding: const EdgeInsets.all(16),
           children: [
             PageHeader(
-              ApiService.instance.user?.role == 'Customer'
-                  ? 'Randevularım'
-                  : 'Randevular',
-              ApiService.instance.user?.role == 'Customer'
-                  ? 'Size ait takvim kayıtları'
-                  : 'Atölye takvimi',
+              isCustomer ? 'Randevularım' : 'Randevular',
+              isCustomer ? 'Size ait takvim kayıtları' : 'Atölye takvimi',
               onRefresh: reload,
             ),
+            if (isCustomer) ...[
+              GoldButton(
+                label: 'Randevu Oluştur',
+                icon: Icons.add_alarm_outlined,
+                onTap: createCustomerAppointment,
+              ),
+              const SizedBox(height: 12),
+            ],
             if (items.isEmpty)
               const Card(
                 child: Padding(
@@ -1191,6 +1440,494 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   );
   Future<void> reload() async =>
       setState(() => future = ApiService.instance.appointments());
+
+  Future<void> createCustomerAppointment() async {
+    final title = TextEditingController();
+    final description = TextEditingController();
+    final orders = (await ApiService.instance.orders()).cast<Map<String, dynamic>>();
+    final customer = await ApiService.instance.myCustomer();
+    int? selectedOrderId =
+        orders.isEmpty ? null : (orders.first['id'] as num?)?.toInt();
+    var appointmentDate = DateTime.now().add(const Duration(days: 1));
+
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          backgroundColor: panel,
+          title: const Text('Yeni Randevu Oluştur'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: title,
+                  decoration: const InputDecoration(labelText: 'Başlık'),
+                ),
+                const SizedBox(height: 10),
+                if (orders.isNotEmpty)
+                  DropdownButtonFormField<int?>(
+                    initialValue: selectedOrderId,
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Sipariş seçmeden devam et'),
+                      ),
+                      ...orders.map(
+                        (order) => DropdownMenuItem<int?>(
+                          value: (order['id'] as num?)?.toInt(),
+                          child: Text(order['title']?.toString() ?? ''),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setModalState(() => selectedOrderId = value),
+                    decoration: const InputDecoration(labelText: 'Sipariş'),
+                  ),
+                const SizedBox(height: 10),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Randevu Tarihi'),
+                  subtitle: Text(formatDateTime(appointmentDate)),
+                  trailing: const Icon(Icons.event_outlined, color: gold),
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: appointmentDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (pickedDate == null || !context.mounted) return;
+                    final pickedTime = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.fromDateTime(appointmentDate),
+                    );
+                    if (pickedTime == null) return;
+                    setModalState(() {
+                      appointmentDate = DateTime(
+                        pickedDate.year,
+                        pickedDate.month,
+                        pickedDate.day,
+                        pickedTime.hour,
+                        pickedTime.minute,
+                      );
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: description,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Açıklama'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Gönder'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    if (title.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Başlık zorunludur.')));
+      return;
+    }
+
+    try {
+      await ApiService.instance.createAppointment(
+        customerId: (customer['id'] as num?)?.toInt() ?? 0,
+        orderId: selectedOrderId,
+        appointmentDate: appointmentDate,
+        title: title.text.trim(),
+        description: description.text.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Randevu talebiniz oluşturuldu.')),
+        );
+      }
+      await reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+}
+
+class PaymentsPage extends StatefulWidget {
+  const PaymentsPage({super.key});
+  @override
+  State<PaymentsPage> createState() => _PaymentsPageState();
+}
+
+class _PaymentsPageState extends State<PaymentsPage> {
+  late Future<List<dynamic>> future = ApiService.instance.payments();
+  bool get isCustomer => ApiService.instance.user?.role == 'Customer';
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<dynamic>>(
+    future: future,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return ErrorState(snapshot.error.toString(), reload);
+      }
+      if (!snapshot.hasData) return const LoadingState();
+      final items = snapshot.data!.cast<Map<String, dynamic>>()
+        ..sort(
+          (a, b) => (b['paymentDate']?.toString() ?? '').compareTo(
+            a['paymentDate']?.toString() ?? '',
+          ),
+        );
+      return RefreshIndicator(
+        onRefresh: reload,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            PageHeader(
+              isCustomer ? 'Ödemelerim' : 'Ödemeler',
+              isCustomer ? 'Size ait ödeme kayıtları' : 'Tahsilat hareketleri',
+              onRefresh: reload,
+            ),
+            if (isCustomer) ...[
+              GoldButton(
+                label: 'Ödeme Ekle',
+                icon: Icons.add_card_outlined,
+                onTap: createCustomerPayment,
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (items.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Text(
+                    'Gösterilecek ödeme bulunmuyor.',
+                    style: TextStyle(color: muted),
+                  ),
+                ),
+              ),
+            ...items.map(
+              (payment) => Card(
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0x22D2A96D),
+                    child: Icon(Icons.payments_outlined, color: gold),
+                  ),
+                  title: Text(
+                    '${((payment['amount'] as num?) ?? 0).toStringAsFixed(2)} TL',
+                  ),
+                  subtitle: Text(
+                    '${payment['order']?['title'] ?? 'Sipariş yok'}\n${formatDateTime(DateTime.tryParse(payment['paymentDate']?.toString() ?? ''))}',
+                  ),
+                  isThreeLine: true,
+                  trailing: StatusPill(paymentTypeName(payment['paymentType'])),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+
+  Future<void> reload() async =>
+      setState(() => future = ApiService.instance.payments());
+
+  Future<void> createCustomerPayment() async {
+    final orders = (await ApiService.instance.orders()).cast<Map<String, dynamic>>();
+    if (orders.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Önce bir siparişiniz olmalı.')),
+        );
+      }
+      return;
+    }
+
+    final amount = TextEditingController();
+    final note = TextEditingController();
+    var selectedOrderId = (orders.first['id'] as num?)?.toInt() ?? 0;
+    var paymentType = 1;
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          backgroundColor: panel,
+          title: const Text('Ödeme Ekle'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<int>(
+                  initialValue: selectedOrderId,
+                  items: orders
+                      .map(
+                        (order) => DropdownMenuItem(
+                          value: (order['id'] as num?)?.toInt() ?? 0,
+                          child: Text(order['title']?.toString() ?? ''),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setModalState(() => selectedOrderId = value ?? 0),
+                  decoration: const InputDecoration(labelText: 'Sipariş'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: amount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Tutar'),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<int>(
+                  initialValue: paymentType,
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Nakit')),
+                    DropdownMenuItem(value: 2, child: Text('Kart')),
+                    DropdownMenuItem(value: 3, child: Text('Havale / EFT')),
+                  ],
+                  onChanged: (value) =>
+                      setModalState(() => paymentType = value ?? 1),
+                  decoration: const InputDecoration(labelText: 'Ödeme Tipi'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: note,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Not'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Gönder'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final parsedAmount = num.tryParse(amount.text.replaceAll(',', '.'));
+    if (parsedAmount == null || parsedAmount <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Geçerli bir tutar girin.')));
+      return;
+    }
+
+    try {
+      await ApiService.instance.createPayment(
+        orderId: selectedOrderId,
+        amount: parsedAmount,
+        paymentType: paymentType,
+        note: note.text.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ödeme kaydınız oluşturuldu.')),
+        );
+      }
+      await reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+}
+
+class CustomerDetailPage extends StatefulWidget {
+  const CustomerDetailPage({super.key, required this.customerId});
+  final int customerId;
+  @override
+  State<CustomerDetailPage> createState() => _CustomerDetailPageState();
+}
+
+class _CustomerDetailPageState extends State<CustomerDetailPage> {
+  late Future<Map<String, dynamic>> future = load();
+
+  Future<Map<String, dynamic>> load() async {
+    final customer = await ApiService.instance.customer(widget.customerId);
+    final orders = await ApiService.instance.orders();
+    final measurements = await ApiService.instance.measurements(
+      customerId: widget.customerId,
+    );
+    return {
+      'customer': customer,
+      'orders': orders,
+      'measurements': measurements,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: future,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return Scaffold(
+          appBar: AppBar(backgroundColor: ink),
+          body: ErrorState(snapshot.error.toString(), reload),
+        );
+      }
+      if (!snapshot.hasData) {
+        return Scaffold(
+          appBar: AppBar(backgroundColor: ink),
+          body: const LoadingState(),
+        );
+      }
+
+      final customer = snapshot.data!['customer'] as Map<String, dynamic>;
+      final orders = (snapshot.data!['orders'] as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .where(
+            (order) => (order['customerId'] as num?)?.toInt() == widget.customerId,
+          )
+          .toList()
+        ..sort(
+          (a, b) => (b['createdAt']?.toString() ?? '').compareTo(
+            a['createdAt']?.toString() ?? '',
+          ),
+        );
+      final measurements = (snapshot.data!['measurements'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: ink,
+          title: Text(customer['fullName']?.toString() ?? 'Müşteri Detayı'),
+        ),
+        body: RefreshIndicator(
+          onRefresh: reload,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0x22D2A96D),
+                    child: Text(_initials(customer['fullName'])),
+                  ),
+                  title: Text(customer['fullName']?.toString() ?? ''),
+                  subtitle: Text(
+                    '${customer['phone'] ?? ''}\n${customer['email'] ?? ''}\n${customer['address'] ?? ''}',
+                  ),
+                  isThreeLine: true,
+                ),
+              ),
+              const SectionTitle('Siparişler', 'Müşteriye ait tüm siparişler'),
+              if (orders.isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Bu müşteriye ait sipariş bulunmuyor.',
+                      style: TextStyle(color: muted),
+                    ),
+                  ),
+                ),
+              ...orders.map((order) => OrderTile(order)),
+              const SectionTitle('Ölçüler', 'Kayıtlı beden ölçüleri'),
+              if (measurements.isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Bu müşteriye ait ölçü bulunmuyor.',
+                      style: TextStyle(color: muted),
+                    ),
+                  ),
+                ),
+              ...measurements.map(
+                (measurement) => Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.straighten, color: gold),
+                            const SizedBox(width: 8),
+                            Text(
+                              formatDateTime(
+                                DateTime.tryParse(
+                                  measurement['createdAt']?.toString() ?? '',
+                                ),
+                              ),
+                              style: const TextStyle(
+                                color: gold,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _MeasureChip('Göğüs', measurement['chest']),
+                            _MeasureChip('Bel', measurement['waist']),
+                            _MeasureChip('Basen', measurement['hip']),
+                            _MeasureChip('Omuz', measurement['shoulder']),
+                            _MeasureChip('Kol', measurement['sleeve']),
+                            _MeasureChip('Paça', measurement['inseam']),
+                            _MeasureChip('Boyun', measurement['neck']),
+                            _MeasureChip('Boy', measurement['height']),
+                            _MeasureChip('Kilo', measurement['weight']),
+                          ],
+                        ),
+                        if ((measurement['notes']?.toString() ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            measurement['notes']?.toString() ?? '',
+                            style: const TextStyle(color: muted),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  Future<void> reload() async => setState(() => future = load());
 }
 
 class CodeRequestsPage extends StatefulWidget {
@@ -1384,9 +2121,15 @@ class StatCard extends StatelessWidget {
 }
 
 class OrderTile extends StatelessWidget {
-  const OrderTile(this.order, {super.key, this.onAssignReceipt});
+  const OrderTile(
+    this.order, {
+    super.key,
+    this.onAssignReceipt,
+    this.onDelete,
+  });
   final Map<String, dynamic> order;
   final VoidCallback? onAssignReceipt;
+  final VoidCallback? onDelete;
   @override
   Widget build(BuildContext context) {
     final receipts = (order['bagReceipts'] as List<dynamic>? ?? [])
@@ -1424,6 +2167,30 @@ class OrderTile extends StatelessWidget {
               '${order['customer']?['fullName'] ?? ''} · ${order['category'] ?? ''}',
               style: const TextStyle(color: muted),
             ),
+            if ((order['photoPath']?.toString() ?? '').isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.network(
+                  _resolvePhotoUrl(order['photoPath']?.toString()),
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 150,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0x22191B19),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Text(
+                      'Fotoğraf yüklenemedi',
+                      style: TextStyle(color: muted),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 6),
             Text(
               'Poşet adedi: ${order['bagCount'] ?? 1}',
@@ -1480,6 +2247,14 @@ class OrderTile extends StatelessWidget {
                   label: const Text('Teslim Fişi Ata'),
                 ),
               ],
+            ],
+            if (onDelete != null) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Siparişi Sil'),
+              ),
             ],
           ],
         ),
@@ -1556,6 +2331,29 @@ class SectionTitle extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _MeasureChip extends StatelessWidget {
+  const _MeasureChip(this.label, this.value);
+  final String label;
+  final dynamic value;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value == null ? '-' : value.toString();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0x221E241F),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0x22D2A96D)),
+      ),
+      child: Text(
+        '$label: $text',
+        style: const TextStyle(color: muted, fontSize: 12),
+      ),
+    );
+  }
 }
 
 class PageHeader extends StatelessWidget {
@@ -1674,12 +2472,187 @@ class ProfileSheet extends StatelessWidget {
               label: 'Güvenli Çıkış',
               icon: Icons.logout,
               onTap: () async {
+                await PushNotificationService.instance.onLogout();
                 await ApiService.instance.logout();
                 if (context.mounted) Navigator.pop(context);
                 onLogout();
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class NotificationBellButton extends StatelessWidget {
+  const NotificationBellButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<List<AppNotificationItem>>(
+      valueListenable: NotificationCenter.instance.items,
+      builder: (context, items, child) {
+        final unreadCount = items.where((x) => !x.isRead).length;
+        return IconButton(
+          onPressed: () async {
+            await NotificationCenter.instance.refresh();
+            if (!context.mounted) return;
+            await showModalBottomSheet<void>(
+              context: context,
+              backgroundColor: panel,
+              isScrollControlled: true,
+              builder: (_) => const NotificationsSheet(),
+            );
+          },
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.notifications_none_outlined, color: gold),
+              if (unreadCount > 0)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFB74A3A),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      unreadCount > 9 ? '9+' : '$unreadCount',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class NotificationsSheet extends StatelessWidget {
+  const NotificationsSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+        child: ValueListenableBuilder<List<AppNotificationItem>>(
+          valueListenable: NotificationCenter.instance.items,
+          builder: (context, items, child) {
+            final unreadCount = items.where((x) => !x.isRead).length;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Bildirimler',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (unreadCount > 0)
+                      TextButton(
+                        onPressed: () => NotificationCenter.instance.markAllRead(),
+                        child: const Text('Tümünü Oku'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 22),
+                    child: Text(
+                      'Henüz bildirim yok.',
+                      style: TextStyle(color: muted),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: items.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => NotificationCenter.instance.markRead(item),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              color: item.isRead
+                                  ? const Color(0xFF171917)
+                                  : const Color(0x222B7A4B),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: item.isRead
+                                    ? const Color(0x22D2A96D)
+                                    : const Color(0x6679C08C),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.title,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: gold,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        formatDateTime(item.createdAt),
+                                        style: const TextStyle(
+                                          color: muted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(item.message),
+                                  if (item.orderId != null) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Sipariş #${item.orderId}',
+                                      style: const TextStyle(
+                                        color: muted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1793,9 +2766,25 @@ String _initials(dynamic value) {
       .join();
 }
 
+String _resolvePhotoUrl(String? value) {
+  if (value == null || value.isEmpty) {
+    return '';
+  }
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+  return '${ApiService.instance.baseUrl}$value';
+}
+
 String serviceName(dynamic value) => switch (value) {
   1 || 'Sewing' => 'Dikim',
   2 || 'Repair' => 'Tamir',
+  _ => '-',
+};
+String paymentTypeName(dynamic value) => switch (value) {
+  1 || 'Cash' => 'Nakit',
+  2 || 'Card' => 'Kart',
+  3 || 'Transfer' => 'Havale / EFT',
   _ => '-',
 };
 String statusName(dynamic value) => switch (value) {

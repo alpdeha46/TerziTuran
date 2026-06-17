@@ -1,0 +1,3 @@
+Username=admin
+Password=Admin123*Auto
+Note=Bu sifre ilk acilis icin otomatik uretildi. Giris sonrasi mutlaka degistirin.

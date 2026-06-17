@@ -38,6 +38,8 @@ public class OrderDto
     [Required] public string Title { get; set; } = string.Empty;
     [Required] public string Category { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public string? PhotoBase64 { get; set; }
+    public string? PhotoFileName { get; set; }
     public OrderServiceType ServiceType { get; set; }
     public OrderStatus Status { get; set; }
     public OrderPriority Priority { get; set; }
@@ -67,4 +69,16 @@ public class AppointmentDto
     [Required] public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public AppointmentStatus Status { get; set; }
+}
+
+public class PushTokenRegisterDto
+{
+    [Required, StringLength(512)]
+    public string Token { get; set; } = string.Empty;
+
+    [Required, StringLength(40)]
+    public string Platform { get; set; } = string.Empty;
+
+    [StringLength(150)]
+    public string? DeviceName { get; set; }
 }

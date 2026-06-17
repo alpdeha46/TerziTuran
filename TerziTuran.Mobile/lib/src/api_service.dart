@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -93,6 +94,43 @@ class SessionUser {
     email: json['email']?.toString() ?? '',
     role: json['role']?.toString() ?? '',
   );
+}
+
+class AppNotificationItem {
+  const AppNotificationItem({
+    required this.id,
+    required this.userId,
+    required this.title,
+    required this.message,
+    required this.type,
+    required this.orderId,
+    required this.isRead,
+    required this.createdAt,
+    required this.readAt,
+  });
+
+  final int id;
+  final int userId;
+  final String title;
+  final String message;
+  final String type;
+  final int? orderId;
+  final bool isRead;
+  final DateTime? createdAt;
+  final DateTime? readAt;
+
+  factory AppNotificationItem.fromJson(Map<String, dynamic> json) =>
+      AppNotificationItem(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        userId: (json['userId'] as num?)?.toInt() ?? 0,
+        title: json['title']?.toString() ?? '',
+        message: json['message']?.toString() ?? '',
+        type: json['type']?.toString() ?? 'general',
+        orderId: (json['orderId'] as num?)?.toInt(),
+        isRead: json['isRead'] == true,
+        createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
+        readAt: DateTime.tryParse(json['readAt']?.toString() ?? ''),
+      );
 }
 
 class ApiService {
@@ -209,6 +247,9 @@ class ApiService {
   Future<List<dynamic>> customers() async =>
       (await _request('GET', '/api/customers')) as List<dynamic>;
 
+  Future<Map<String, dynamic>> customer(int id) async =>
+      (await _request('GET', '/api/customers/$id')) as Map<String, dynamic>;
+
   Future<Map<String, dynamic>> myCustomer() async =>
       (await _request('GET', '/api/customers/me')) as Map<String, dynamic>;
 
@@ -218,14 +259,25 @@ class ApiService {
   Future<List<dynamic>> payments() async =>
       (await _request('GET', '/api/payments')) as List<dynamic>;
 
+  Future<List<dynamic>> measurements({int? customerId}) async {
+    final path = customerId == null
+        ? '/api/measurements'
+        : '/api/measurements?customerId=$customerId';
+    return (await _request('GET', path)) as List<dynamic>;
+  }
+
   Future<void> createOrder({
     required String title,
     required String category,
     String? description,
+    File? photoFile,
     int serviceType = 1,
     DateTime? deliveryDate,
     int bagCount = 1,
   }) async {
+    final encodedPhoto = photoFile == null
+        ? null
+        : base64Encode(await photoFile.readAsBytes());
     await _request(
       'POST',
       '/api/orders',
@@ -234,6 +286,8 @@ class ApiService {
         'title': title,
         'category': category,
         'description': description,
+        'photoBase64': encodedPhoto,
+        'photoFileName': photoFile?.path.split('/').last,
         'serviceType': serviceType,
         'status': 1,
         'priority': 2,
@@ -245,6 +299,52 @@ class ApiService {
         'bagCount': bagCount,
       },
     );
+  }
+
+  Future<void> createAppointment({
+    required int customerId,
+    int? orderId,
+    required DateTime appointmentDate,
+    required String title,
+    String? description,
+    int status = 1,
+  }) async {
+    await _request(
+      'POST',
+      '/api/appointments',
+      body: {
+        'customerId': customerId,
+        'orderId': orderId,
+        'appointmentDate': appointmentDate.toIso8601String(),
+        'title': title,
+        'description': description,
+        'status': status,
+      },
+    );
+  }
+
+  Future<void> createPayment({
+    required int orderId,
+    required num amount,
+    int paymentType = 1,
+    DateTime? paymentDate,
+    String? note,
+  }) async {
+    await _request(
+      'POST',
+      '/api/payments',
+      body: {
+        'orderId': orderId,
+        'amount': amount,
+        'paymentType': paymentType,
+        'paymentDate': (paymentDate ?? DateTime.now()).toIso8601String(),
+        'note': note,
+      },
+    );
+  }
+
+  Future<void> deleteOrder(int orderId) async {
+    await _request('DELETE', '/api/orders/$orderId');
   }
 
   Future<void> assignReceipt(int orderId, int bagCount, String? note) async {
@@ -265,6 +365,46 @@ class ApiService {
 
   Future<void> dispatchCodeRequest(int id) async {
     await _request('POST', '/api/code-requests/$id/dispatch');
+  }
+
+  Future<List<AppNotificationItem>> notifications({bool unreadOnly = false}) async {
+    final path = unreadOnly
+        ? '/api/notifications?unreadOnly=true'
+        : '/api/notifications';
+    final data = await _request('GET', path) as List<dynamic>;
+    return data
+        .cast<Map<String, dynamic>>()
+        .map(AppNotificationItem.fromJson)
+        .toList();
+  }
+
+  Future<void> markNotificationRead(int id) async {
+    await _request('POST', '/api/notifications/$id/read');
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _request('POST', '/api/notifications/read-all');
+  }
+
+  Future<void> registerPushToken({
+    required String token,
+    required String platform,
+    String? deviceName,
+  }) async {
+    await _request(
+      'POST',
+      '/api/push-tokens/register',
+      body: {
+        'token': token,
+        'platform': platform,
+        'deviceName': deviceName,
+      },
+    );
+  }
+
+  Future<void> unregisterPushToken(String token) async {
+    final encoded = Uri.encodeQueryComponent(token);
+    await _request('DELETE', '/api/push-tokens/unregister?token=$encoded');
   }
 
   Future<void> _saveSession(Map<String, dynamic> data) async {

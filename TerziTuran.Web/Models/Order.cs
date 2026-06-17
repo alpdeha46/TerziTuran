@@ -22,6 +22,10 @@ public class Order
     [StringLength(1000)]
     public string? Description { get; set; }
 
+    [Display(Name = "Referans Fotograf")]
+    [StringLength(300)]
+    public string? PhotoPath { get; set; }
+
     [Display(Name = "Kategori")]
     [Required(ErrorMessage = "Kategori zorunludur.")]
     [StringLength(100)]

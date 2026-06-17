@@ -42,5 +42,7 @@ public class User
     public bool MustChangePassword { get; set; } = true;
 
     public ICollection<Order> Orders { get; set; } = new List<Order>();
+    public ICollection<AppNotification> Notifications { get; set; } = new List<AppNotification>();
+    public ICollection<UserPushToken> PushTokens { get; set; } = new List<UserPushToken>();
     public ICollection<UserPasswordRequest> PasswordRequests { get; set; } = new List<UserPasswordRequest>();
 }

@@ -6,13 +6,14 @@ using Microsoft.EntityFrameworkCore;
 using TerziTuran.Web.Data;
 using TerziTuran.Web.DTOs;
 using TerziTuran.Web.Models;
+using TerziTuran.Web.Services;
 
 namespace TerziTuran.Web.ApiControllers;
 
 [ApiController]
 [Route("api/payments")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-public class PaymentsApiController(AppDbContext context) : ControllerBase
+public class PaymentsApiController(AppDbContext context, INotificationService notificationService) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll()
@@ -48,17 +49,48 @@ public class PaymentsApiController(AppDbContext context) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(PaymentDto dto)
     {
-        if (User.IsInRole(UserRole.Customer.ToString()))
+        if (!ModelState.IsValid) return BadRequest(ApiResponse<object>.Fail("Gecersiz veri.", ModelState));
+        var user = await GetCurrentUserAsync();
+        var order = await context.Orders
+            .Include(x => x.Customer)
+            .FirstOrDefaultAsync(x => x.Id == dto.OrderId);
+
+        if (order is null)
         {
-            return Forbid();
+            return NotFound(ApiResponse<object>.Fail("Siparis bulunamadi."));
         }
 
-        if (!ModelState.IsValid) return BadRequest(ApiResponse<object>.Fail("Gecersiz veri.", ModelState));
-        var item = new Payment { OrderId = dto.OrderId, Amount = dto.Amount, PaymentType = dto.PaymentType, PaymentDate = dto.PaymentDate, Note = dto.Note };
+        if (user?.Role == UserRole.Customer)
+        {
+            if (user.CustomerId is null || user.CustomerId != order.CustomerId)
+            {
+                return Forbid();
+            }
+        }
+
+        var item = new Payment
+        {
+            OrderId = dto.OrderId,
+            Amount = dto.Amount,
+            PaymentType = dto.PaymentType,
+            PaymentDate = dto.PaymentDate == default ? DateTime.UtcNow : dto.PaymentDate,
+            Note = dto.Note
+        };
         context.Payments.Add(item);
-        var order = await context.Orders.FindAsync(dto.OrderId);
-        if (order is not null) order.PaidAmount += dto.Amount;
+        order.PaidAmount += dto.Amount;
         await context.SaveChangesAsync();
+
+        if (user?.Role == UserRole.Customer)
+        {
+            var customerName = order.Customer?.FullName ?? "Musteri";
+            await notificationService.CreateForRolesAsync(
+                [UserRole.Admin],
+                "Musteriden yeni odeme",
+                $"{customerName}, \"{order.Title}\" siparisi icin {dto.Amount:N2} TL odeme ekledi.",
+                "payment_created",
+                order.Id);
+        }
+
         return CreatedAtAction(nameof(Get), new { id = item.Id }, ApiResponse<object>.Ok(item, "Odeme olusturuldu."));
     }
 

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using TerziTuran.Web.Data;
 using TerziTuran.Web.DTOs;
 using TerziTuran.Web.Models;
+using System.Security.Claims;
 
 namespace TerziTuran.Web.ApiControllers;
 
@@ -14,7 +15,27 @@ namespace TerziTuran.Web.ApiControllers;
 public class MeasurementsApiController(AppDbContext context) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(ApiResponse<object>.Ok(await context.Measurements.Include(x => x.Customer).ToListAsync(), "Olculer getirildi."));
+    public async Task<IActionResult> GetAll([FromQuery] int? customerId = null)
+    {
+        var user = await GetCurrentUserAsync();
+        var query = context.Measurements.Include(x => x.Customer).AsQueryable();
+
+        if (user?.Role == UserRole.Customer)
+        {
+            if (user.CustomerId is null)
+            {
+                return Forbid();
+            }
+
+            query = query.Where(x => x.CustomerId == user.CustomerId.Value);
+        }
+        else if (customerId.HasValue)
+        {
+            query = query.Where(x => x.CustomerId == customerId.Value);
+        }
+
+        return Ok(ApiResponse<object>.Ok(await query.OrderByDescending(x => x.CreatedAt).ToListAsync(), "Olculer getirildi."));
+    }
     [HttpGet("{id:int}")]
     public async Task<IActionResult> Get(int id) => await context.Measurements.FindAsync(id) is { } item ? Ok(ApiResponse<object>.Ok(item, "Olcu getirildi.")) : NotFound(ApiResponse<object>.Fail("Olcu bulunamadi."));
     [HttpPost]
@@ -41,5 +62,11 @@ public class MeasurementsApiController(AppDbContext context) : ControllerBase
         if (item is null) return NotFound(ApiResponse<object>.Fail("Olcu bulunamadi."));
         context.Measurements.Remove(item); await context.SaveChangesAsync();
         return Ok(ApiResponse<object>.Ok(null, "Olcu silindi."));
+    }
+
+    private async Task<User?> GetCurrentUserAsync()
+    {
+        var userId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
+        return userId <= 0 ? null : await context.Users.FirstOrDefaultAsync(x => x.Id == userId);
     }
 }

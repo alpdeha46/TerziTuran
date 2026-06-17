@@ -34,15 +34,19 @@ try
     EnsureSqliteDirectory(defaultConnection, builder.Environment.ContentRootPath);
 
     builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+    builder.Services.Configure<FirebasePushOptions>(builder.Configuration.GetSection("Firebase"));
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(defaultConnection));
 
+    builder.Services.AddHttpClient();
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IJwtService, JwtService>();
     builder.Services.AddScoped<IDashboardService, DashboardService>();
     builder.Services.AddScoped<IReportService, ReportService>();
     builder.Services.AddScoped<IPdfService, PdfService>();
     builder.Services.AddScoped<IBagReceiptService, BagReceiptService>();
+    builder.Services.AddScoped<IPushNotificationSender, FirebasePushService>();
+    builder.Services.AddScoped<INotificationService, NotificationService>();
     builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
     builder.Services.AddHttpContextAccessor();
 

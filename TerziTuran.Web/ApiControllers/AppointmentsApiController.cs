@@ -6,13 +6,14 @@ using Microsoft.EntityFrameworkCore;
 using TerziTuran.Web.Data;
 using TerziTuran.Web.DTOs;
 using TerziTuran.Web.Models;
+using TerziTuran.Web.Services;
 
 namespace TerziTuran.Web.ApiControllers;
 
 [ApiController]
 [Route("api/appointments")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-public class AppointmentsApiController(AppDbContext context) : ControllerBase
+public class AppointmentsApiController(AppDbContext context, INotificationService notificationService) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll()
@@ -48,14 +49,50 @@ public class AppointmentsApiController(AppDbContext context) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(AppointmentDto dto)
     {
-        if (User.IsInRole(UserRole.Customer.ToString()))
+        if (!ModelState.IsValid) return BadRequest(ApiResponse<object>.Fail("Gecersiz veri.", ModelState));
+        var user = await GetCurrentUserAsync();
+        var customerId = dto.CustomerId;
+        var status = dto.Status;
+
+        if (user?.Role == UserRole.Customer)
         {
-            return Forbid();
+            if (user.CustomerId is null)
+            {
+                return Forbid();
+            }
+
+            customerId = user.CustomerId.Value;
+            status = AppointmentStatus.Scheduled;
         }
 
-        if (!ModelState.IsValid) return BadRequest(ApiResponse<object>.Fail("Gecersiz veri.", ModelState));
-        var item = new Appointment { CustomerId = dto.CustomerId, OrderId = dto.OrderId, AppointmentDate = dto.AppointmentDate, Title = dto.Title, Description = dto.Description, Status = dto.Status };
-        context.Appointments.Add(item); await context.SaveChangesAsync();
+        var customer = await context.Customers.FindAsync(customerId);
+        if (customer is null)
+        {
+            return NotFound(ApiResponse<object>.Fail("Musteri bulunamadi."));
+        }
+
+        var item = new Appointment
+        {
+            CustomerId = customerId,
+            OrderId = dto.OrderId,
+            AppointmentDate = dto.AppointmentDate,
+            Title = dto.Title,
+            Description = dto.Description,
+            Status = status
+        };
+        context.Appointments.Add(item);
+        await context.SaveChangesAsync();
+
+        if (user?.Role == UserRole.Customer)
+        {
+            await notificationService.CreateForRolesAsync(
+                [UserRole.Admin],
+                "Musteriden yeni randevu",
+                $"{customer.FullName} icin {item.AppointmentDate:dd.MM.yyyy HH:mm} tarihli yeni randevu olusturuldu.",
+                "appointment_created",
+                item.OrderId);
+        }
+
         return CreatedAtAction(nameof(Get), new { id = item.Id }, ApiResponse<object>.Ok(item, "Randevu olusturuldu."));
     }
 

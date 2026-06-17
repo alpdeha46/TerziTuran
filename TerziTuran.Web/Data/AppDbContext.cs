@@ -13,6 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<BagReceipt> BagReceipts => Set<BagReceipt>();
+    public DbSet<AppNotification> AppNotifications => Set<AppNotification>();
+    public DbSet<UserPushToken> UserPushTokens => Set<UserPushToken>();
     public DbSet<UserPasswordRequest> UserPasswordRequests => Set<UserPasswordRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -30,6 +32,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany(x => x.Users)
             .HasForeignKey(x => x.CustomerId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<User>()
+            .HasMany(x => x.Notifications)
+            .WithOne(x => x.User)
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<User>()
+            .HasMany(x => x.PushTokens)
+            .WithOne(x => x.User)
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<User>()
             .HasMany(x => x.PasswordRequests)
@@ -94,6 +108,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<BagReceipt>()
             .HasIndex(x => x.BagNumber);
+
+        modelBuilder.Entity<AppNotification>()
+            .HasIndex(x => new { x.UserId, x.IsRead, x.CreatedAt });
+
+        modelBuilder.Entity<UserPushToken>()
+            .HasIndex(x => x.Token)
+            .IsUnique();
+
+        modelBuilder.Entity<UserPushToken>()
+            .HasIndex(x => new { x.UserId, x.IsActive, x.LastSeenAt });
 
         modelBuilder.Entity<UserPasswordRequest>()
             .HasIndex(x => new { x.UserId, x.RequestType, x.IsUsed, x.IsDispatched });
